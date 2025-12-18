@@ -6,6 +6,11 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import Link from "next/link";
 
 export default function LoginPage() {
+  const handleFormAction = async (formData: FormData) => {
+    "use server"
+    await signIn(formData)
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12 sm:px-6 lg:px-8">
       <Card className="w-full max-w-md">
@@ -15,7 +20,7 @@ export default function LoginPage() {
             Enter your email and password to access your store dashboard
           </CardDescription>
         </CardHeader>
-        <form action={signIn}>
+        <form action={handleFormAction}>
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
