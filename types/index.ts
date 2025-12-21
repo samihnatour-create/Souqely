@@ -8,6 +8,11 @@ export type Store = {
   currency: "USD" | "LBP" | "BOTH";
   phone: string | null;
   whatsapp: string | null;
+  lbp_rate: number;
+  whish_number: string | null;
+  omt_name: string | null;
+  is_whish_enabled: boolean;
+  is_omt_enabled: boolean;
   created_at: string;
 };
 
