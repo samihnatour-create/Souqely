@@ -12,18 +12,18 @@ interface ProductCardProps {
 }
 
 export default function ProductCard({ product, slug, currency = "USD", lbpRate = 89500 }: ProductCardProps) {
-  
-  const price = currency === "USD" 
-    ? product.price_usd 
+
+  const price = currency === "USD"
+    ? product.price_usd
     : product.price_usd * lbpRate;
 
   return (
     <Card className="overflow-hidden flex flex-col h-full group">
       <div className="aspect-square bg-gray-100 relative overflow-hidden">
         {product.main_image_url ? (
-          <img 
-            src={product.main_image_url} 
-            alt={product.name} 
+          <img
+            src={product.main_image_url}
+            alt={product.name}
             className="w-full h-full object-cover transition-transform group-hover:scale-105"
           />
         ) : (
@@ -43,7 +43,7 @@ export default function ProductCard({ product, slug, currency = "USD", lbpRate =
         </p>
       </CardContent>
       <CardFooter className="p-4 pt-0">
-        <Link href={/store//product/} className="w-full">
+        <Link href={`/store/${slug}/product/${product.id}`} className="w-full">
           <Button className="w-full" size="sm">View Details</Button>
         </Link>
       </CardFooter>

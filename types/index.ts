@@ -21,6 +21,7 @@ export type Product = {
   store_id: string;
   name: string;
   description: string | null;
+  price_usd: number;
   price: number;
   currency: string;
   stock_quantity: number;
