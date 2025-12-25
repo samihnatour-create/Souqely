@@ -1,38 +1,31 @@
+﻿import { createClient } from "@/lib/supabase-server";
 import ProductCard from "@/components/ProductCard";
-import { Product } from "@/types";
+import { notFound } from "next/navigation";
+import StoreClientPage from "@/components/StoreClientPage";
 
-// Dummy data for now
-const products: Product[] = [
-  {
-    id: "1",
-    store_id: "1",
-    name: "Classic T-Shirt",
-    description: "A comfortable cotton t-shirt.",
-    price: 15.00,
-    currency: "USD",
-    stock_quantity: 100,
-    active: true,
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: "2",
-    store_id: "1",
-    name: "Denim Jeans",
-    description: "High quality denim jeans.",
-    price: 45.00,
-    currency: "USD",
-    stock_quantity: 50,
-    active: true,
-    created_at: new Date().toISOString(),
-  },
-];
+export default async function StorePage({ params }: { params: { slug: string } }) {
+  const supabase = createClient();
+  
+  // 1. Fetch Store
+  // Note: We use .select("*") to fetch everything including lbp_rate
+  const { data: store } = await supabase
+    .from("stores")
+    .select("*")
+    .eq("slug", params.slug)
+    .single();
 
-export default function StorePage({ params }: { params: { slug: string } }) {
-  return (
-    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-      {products.map((product) => (
-        <ProductCard key={product.id} product={product} slug={params.slug} />
-      ))}
-    </div>
-  );
+  if (!store) {
+    notFound();
+  }
+
+  // 2. Fetch Products
+  const { data: products } = await supabase
+    .from("products")
+    .select("*")
+    .eq("store_id", store.id)
+    .eq("active", true)
+    .order("created_at", { ascending: false });
+
+  // 3. Render Client Component for interactivity (Currency Toggle)
+  return <StoreClientPage store={store} products={products || []} />;
 }

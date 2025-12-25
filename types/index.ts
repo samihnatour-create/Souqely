@@ -1,4 +1,4 @@
-export type Store = {
+﻿export type Store = {
   id: string;
   owner_id: string;
   name: string;
@@ -25,6 +25,7 @@ export type Product = {
   currency: string;
   stock_quantity: number;
   active: boolean;
+  main_image_url: string | null;
   created_at: string;
   images?: ProductImage[];
 };

@@ -1,10 +1,18 @@
--- Enable UUID extension
+﻿-- Enable UUID extension
 create extension if not exists "uuid-ossp";
+
+-- Profiles Table (for User Verification)
+create table profiles (
+  id uuid primary key references auth.users(id) on delete cascade not null,
+  verification_code text,
+  is_verified boolean default false,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
 
 -- Stores Table
 create table stores (
   id uuid primary key default uuid_generate_v4(),
-  owner_id uuid references auth.users not null,
+  owner_id uuid references auth.users(id) not null,
   name text not null,
   slug text unique not null,
   logo_url text,
@@ -12,6 +20,14 @@ create table stores (
   currency text default 'USD', -- USD, LBP, BOTH
   phone text,
   whatsapp text,
+  
+  -- New fields for Payment & Rates
+  lbp_rate numeric default 89500,
+  whish_number text,
+  omt_name text,
+  is_whish_enabled boolean default false,
+  is_omt_enabled boolean default false,
+
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
@@ -21,18 +37,27 @@ create table products (
   store_id uuid references stores(id) on delete cascade not null,
   name text not null,
   description text,
-  price numeric not null,
+  
+  -- Changed price to price_usd
+  price_usd numeric not null,
+  
   currency text default 'USD',
   stock_quantity integer default 0,
   active boolean default true,
+  
+  -- Main image URL
+  main_image_url text,
+
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- Product Images Table
+-- Product Images Table (Multi-image support)
 create table product_images (
   id uuid primary key default uuid_generate_v4(),
   product_id uuid references products(id) on delete cascade not null,
-  image_url text not null
+  image_url text not null,
+  display_order integer default 0,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
 -- Orders Table
@@ -56,10 +81,15 @@ create table order_items (
   order_id uuid references orders(id) on delete cascade not null,
   product_id uuid references products(id) on delete set null,
   quantity integer not null,
-  price numeric not null
+  price numeric not null -- Captured price at time of order
 );
 
 -- RLS Policies
+
+-- Profiles: Users can view/update their own profile
+alter table profiles enable row level security;
+create policy "Users can view own profile" on profiles for select using (auth.uid() = id);
+create policy "Users can update own profile" on profiles for update using (auth.uid() = id);
 
 -- Stores: Public read, Owner write
 alter table stores enable row level security;
