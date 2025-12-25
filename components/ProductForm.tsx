@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Upload, X, CheckCircle, Plus } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
+import { Loader2 } from "lucide-react";
 
 const productSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -37,7 +38,7 @@ export default function ProductForm({ store }: ProductFormProps) {
   const [images, setImages] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
   const [success, setSuccess] = useState(false);
-  
+
   // Ref for file input
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -55,7 +56,7 @@ export default function ProductForm({ store }: ProductFormProps) {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const newFiles = Array.from(e.target.files);
-      
+
       // Limit to 5 images total
       const totalImages = images.length + newFiles.length;
       if (totalImages > 5) {
@@ -95,8 +96,8 @@ export default function ProductForm({ store }: ProductFormProps) {
         setUploading(true);
         for (const image of images) {
           const fileExt = image.name.split(".").pop();
-          const fileName = ${Math.random().toString(36).substring(2)}.;
-          const filePath = ${store.owner_id}/;
+          const fileName = `${Math.random().toString(36).substring(2)}`;
+          const filePath = `${store.owner_id}/`;
 
           const { error: uploadError } = await supabase.storage
             .from("product-images")
@@ -139,18 +140,18 @@ export default function ProductForm({ store }: ProductFormProps) {
 
       // 3. Insert Additional Images (if any)
       if (uploadedImageUrls.length > 0 && product) {
-         // Create array of objects for bulk insert
-         const imageRecords = uploadedImageUrls.map((url, index) => ({
-             product_id: product.id,
-             image_url: url,
-             display_order: index
-         }));
+        // Create array of objects for bulk insert
+        const imageRecords = uploadedImageUrls.map((url, index) => ({
+          product_id: product.id,
+          image_url: url,
+          display_order: index
+        }));
 
-         const { error: imagesError } = await supabase
-           .from("product_images")
-           .insert(imageRecords);
-           
-         if (imagesError) console.error("Error saving image records:", imagesError);
+        const { error: imagesError } = await supabase
+          .from("product_images")
+          .insert(imageRecords);
+
+        if (imagesError) console.error("Error saving image records:", imagesError);
       }
 
       setSuccess(true);
@@ -169,27 +170,27 @@ export default function ProductForm({ store }: ProductFormProps) {
     router.refresh(); // Refresh to clear form state if needed or just reset manually
     // Ideally we would reset the form using react-hook-form's reset, 
     // but a full page reload or router.push might be cleaner for "Add Another".
-    window.location.reload(); 
+    window.location.reload();
   };
 
   if (success) {
-     return (
-       <Card>
-         <CardContent className="pt-6 flex flex-col items-center text-center space-y-4">
-           <div className="rounded-full bg-green-100 p-3 text-green-600">
-             <CheckCircle className="h-8 w-8" />
-           </div>
-           <div>
-             <h2 className="text-2xl font-bold">Product Created!</h2>
-             <p className="text-muted-foreground">Your product has been successfully added to your store.</p>
-           </div>
-           <div className="flex gap-4 pt-4">
-             <Button variant="outline" onClick={handleReset}>Add Another Product</Button>
-             <Button onClick={() => router.push("/dashboard/products")}>View All Products</Button>
-           </div>
-         </CardContent>
-       </Card>
-     );
+    return (
+      <Card>
+        <CardContent className="pt-6 flex flex-col items-center text-center space-y-4">
+          <div className="rounded-full bg-green-100 p-3 text-green-600">
+            <CheckCircle className="h-8 w-8" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold">Product Created!</h2>
+            <p className="text-muted-foreground">Your product has been successfully added to your store.</p>
+          </div>
+          <div className="flex gap-4 pt-4">
+            <Button variant="outline" onClick={handleReset}>Add Another Product</Button>
+            <Button onClick={() => router.push("/dashboard/products")}>View All Products</Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
   }
 
   return (
@@ -203,14 +204,14 @@ export default function ProductForm({ store }: ProductFormProps) {
         </CardHeader>
         <form onSubmit={handleSubmit(onSubmit)}>
           <CardContent className="space-y-6">
-            
+
             {/* Image Upload */}
             <div className="space-y-2">
               <Label>Product Images (Max 5)</Label>
               <div className="grid grid-cols-3 gap-4 sm:grid-cols-5">
                 {previews.map((preview, index) => (
                   <div key={index} className="relative aspect-square rounded-lg overflow-hidden border bg-gray-50 group">
-                    <img src={preview} alt={Preview } className="w-full h-full object-cover" />
+                    <img src={preview} alt={preview} className="w-full h-full object-cover" />
                     <button
                       type="button"
                       onClick={() => removeImage(index)}
@@ -219,11 +220,11 @@ export default function ProductForm({ store }: ProductFormProps) {
                       <X className="h-3 w-3" />
                     </button>
                     {index === 0 && (
-                       <div className="absolute bottom-0 inset-x-0 bg-black/60 text-white text-[10px] text-center py-0.5">Main</div>
+                      <div className="absolute bottom-0 inset-x-0 bg-black/60 text-white text-[10px] text-center py-0.5">Main</div>
                     )}
                   </div>
                 ))}
-                
+
                 {previews.length < 5 && (
                   <button
                     type="button"
@@ -261,13 +262,13 @@ export default function ProductForm({ store }: ProductFormProps) {
                 <Label htmlFor="price_usd">Price (USD)</Label>
                 <div className="relative">
                   <span className="absolute left-3 top-2.5 text-gray-500">$</span>
-                  <Input 
-                    id="price_usd" 
-                    type="number" 
-                    step="0.01" 
-                    className="pl-7" 
-                    {...register("price_usd")} 
-                    placeholder="0.00" 
+                  <Input
+                    id="price_usd"
+                    type="number"
+                    step="0.01"
+                    className="pl-7"
+                    {...register("price_usd")}
+                    placeholder="0.00"
                   />
                 </div>
                 {errors.price_usd && <p className="text-sm text-red-500">{errors.price_usd.message}</p>}
@@ -318,6 +319,6 @@ export default function ProductForm({ store }: ProductFormProps) {
 
 // Helper for react-hook-form manual setValue if needed, though we used direct registration
 function check(name: any, val: any) {
-    // Placeholder to fix typescript error with Select onValueChange if needed
-    // In real app we would use setValue from useForm
+  // Placeholder to fix typescript error with Select onValueChange if needed
+  // In real app we would use setValue from useForm
 }
