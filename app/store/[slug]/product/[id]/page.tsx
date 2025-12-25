@@ -13,6 +13,8 @@ const product: Product = {
   stock_quantity: 100,
   active: true,
   created_at: new Date().toISOString(),
+  price_usd: 25.00,
+  main_image_url: "https://via.placeholder.com/600",
 };
 
 export default function ProductDetailsPage({ params }: { params: { slug: string; id: string } }) {
