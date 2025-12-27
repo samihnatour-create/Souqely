@@ -54,10 +54,37 @@ export async function signUp(formData: FormData) {
     const supabase = createClient();
 
     // 1. Create the user in Supabase Auth
-    const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-    });
+    const { data, error } = await supabase.auth.signUp({ email, password });
+
+    // Handle "User already registered"
+    if (error?.message?.includes("User already registered")) {
+        // Check if they are verified in your profiles table
+        const supabaseAdmin = createAdminClient();
+        const { data: profile } = await supabaseAdmin
+            .from("profiles")
+            .select("id, is_verified")
+            .eq("email", email) // Ensure you have email in your profiles table or use a join
+            .single();
+
+        if (profile && !profile.is_verified) {
+            // 1. Generate new code
+            const newCode = Math.floor(100000 + Math.random() * 900000).toString();
+
+            // 2. Update the code in the DB
+            await supabaseAdmin
+                .from("profiles")
+                .update({ verification_code: newCode })
+                .eq("id", profile.id);
+
+            // 3. Resend the email
+            await sendVerificationEmail(email, newCode);
+
+            // 4. Redirect them back to the verify page
+            redirect("/auth/verify");
+        }
+
+        return { error: "This email is already verified. Please login." };
+    }
 
     if (error) return { error: error.message };
 

@@ -13,22 +13,21 @@ import { Loader2 } from "lucide-react";
 export default function SettingsForm({ store }: { store: Store }) {
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-  
-  const [isWhishEnabled, setIsWhishEnabled] = useState(store.is_whish_enabled || false);
-  const [isOmtEnabled, setIsOmtEnabled] = useState(store.is_omt_enabled || false);
 
+  const [isWhishEnabled, setIsWhishEnabled] = useState(store?.is_whish_enabled || false);
+  const [isOmtEnabled, setIsOmtEnabled] = useState(store?.is_omt_enabled || false);
   async function handleSubmit(formData: FormData) {
     setIsLoading(true);
     setMessage(null);
-    
+
     const result = await updateStoreSettings(formData);
-    
+
     if (result?.error) {
       setMessage({ type: "error", text: result.error });
     } else if (result?.success) {
       setMessage({ type: "success", text: result.success });
     }
-    
+
     setIsLoading(false);
   }
 
@@ -51,11 +50,11 @@ export default function SettingsForm({ store }: { store: Store }) {
         <CardContent className="grid gap-6">
           <div className="grid gap-3">
             <Label htmlFor="name">Store Name</Label>
-            <Input id="name" name="name" defaultValue={store.name} required />
+            <Input id="name" name="name" defaultValue={store?.name} required />
           </div>
           <div className="grid gap-3">
             <Label htmlFor="phone">Phone Number</Label>
-            <Input id="phone" name="phone" defaultValue={store.phone || ""} placeholder="+961 3 123456" />
+            <Input id="phone" name="phone" defaultValue={store?.phone || ""} placeholder="+961 3 123456" />
           </div>
         </CardContent>
       </Card>
@@ -71,12 +70,12 @@ export default function SettingsForm({ store }: { store: Store }) {
         <CardContent className="grid gap-6">
           <div className="grid gap-3">
             <Label htmlFor="lbp_rate">LBP Rate (1 USD = ? LBP)</Label>
-            <Input 
-              id="lbp_rate" 
-              name="lbp_rate" 
-              type="number" 
-              defaultValue={store.lbp_rate || 89500} 
-              placeholder="89500" 
+            <Input
+              id="lbp_rate"
+              name="lbp_rate"
+              type="number"
+              defaultValue={store?.lbp_rate || 89500}
+              placeholder="89500"
             />
           </div>
         </CardContent>
@@ -91,7 +90,7 @@ export default function SettingsForm({ store }: { store: Store }) {
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-8">
-          
+
           {/* Whish Pay */}
           <div className="space-y-4 border rounded-lg p-4 bg-red-50/50">
             <div className="flex items-center justify-between">
@@ -101,10 +100,10 @@ export default function SettingsForm({ store }: { store: Store }) {
               </div>
               <div className="flex items-center">
                 <input type="hidden" name="is_whish_enabled" value={isWhishEnabled ? "on" : "off"} />
-                <Switch 
-                  checked={isWhishEnabled} 
+                <Switch
+                  checked={isWhishEnabled}
                   onCheckedChange={setIsWhishEnabled}
-                  className="data-[state=checked]:bg-red-600" 
+                  className="data-[state=checked]:bg-red-600"
                 />
               </div>
             </div>
@@ -112,11 +111,11 @@ export default function SettingsForm({ store }: { store: Store }) {
               <div className="grid gap-4 pt-2 animate-in slide-in-from-top-2 fade-in duration-200">
                 <div className="grid gap-2">
                   <Label htmlFor="whish_number">Whish Number</Label>
-                  <Input 
-                    id="whish_number" 
-                    name="whish_number" 
-                    defaultValue={store.whish_number || ""} 
-                    placeholder="+961 70 123456" 
+                  <Input
+                    id="whish_number"
+                    name="whish_number"
+                    defaultValue={store?.whish_number || ""}
+                    placeholder="+961 70 123456"
                   />
                 </div>
               </div>
@@ -132,10 +131,10 @@ export default function SettingsForm({ store }: { store: Store }) {
               </div>
               <div className="flex items-center">
                 <input type="hidden" name="is_omt_enabled" value={isOmtEnabled ? "on" : "off"} />
-                <Switch 
-                  checked={isOmtEnabled} 
+                <Switch
+                  checked={isOmtEnabled}
                   onCheckedChange={setIsOmtEnabled}
-                  className="data-[state=checked]:bg-yellow-400" 
+                  className="data-[state=checked]:bg-yellow-400"
                 />
               </div>
             </div>
@@ -143,11 +142,11 @@ export default function SettingsForm({ store }: { store: Store }) {
               <div className="grid gap-4 pt-2 animate-in slide-in-from-top-2 fade-in duration-200">
                 <div className="grid gap-2">
                   <Label htmlFor="omt_name">OMT Merchant Name</Label>
-                  <Input 
-                    id="omt_name" 
-                    name="omt_name" 
-                    defaultValue={store.omt_name || ""} 
-                    placeholder="e.g. My Store OMT" 
+                  <Input
+                    id="omt_name"
+                    name="omt_name"
+                    defaultValue={store?.omt_name || ""}
+                    placeholder="e.g. My Store OMT"
                   />
                 </div>
               </div>
