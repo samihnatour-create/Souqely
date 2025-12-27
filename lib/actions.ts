@@ -24,7 +24,18 @@ async function sendVerificationEmail(email: string, code: string) {
                 from: "Souqely <team@souqely.com>", // CHANGE THIS TO YOUR DOMAIN
                 to: [email],
                 subject: "Verify your Souqely Account",
-                html: `<p>Your verification code is: <strong>${code}</strong></p>`,
+                html: `
+  <div style="font-family: sans-serif; padding: 20px; color: #333;">
+    <h2>Welcome to Souqely</h2>
+    <p>To finish setting up your account, please use the following verification code:</p>
+    <div style="background: #f4f4f4; padding: 10px; font-size: 24px; font-weight: bold; text-align: center; border-radius: 5px;">
+      ${code}
+    </div>
+    <p style="font-size: 12px; color: #666; margin-top: 20px;">
+      If you did not request this, please ignore this email.
+    </p>
+  </div>
+`
             }),
         });
 
@@ -72,6 +83,7 @@ export async function signUp(formData: FormData) {
 
         // 3. Send the email via Resend
         await sendVerificationEmail(email, code);
+        redirect("/auth/verify");
     }
 
     return { success: "Account created! Check your email for the code." };
@@ -100,6 +112,8 @@ export async function verifyCode(prevState: any, formData: FormData) {
         .eq("id", user.id);
 
     if (error) return { error: error.message };
+
+    revalidatePath("/", "layout");
 
     redirect("/dashboard");
 }
