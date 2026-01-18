@@ -229,45 +229,319 @@ export async function updateStoreSettings(formData: FormData) {
 
 export async function getStoreSettings() {
     const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
 
-    if (!user) return null;
+    if (authError || !user) return null;
 
+    // Use .limit(1) instead of .single() to avoid crashes if multiple stores exist
     const { data, error } = await supabase
         .from("stores")
         .select("*")
         .eq("owner_id", user.id)
-        .single();
+        .limit(1);
 
-    if (error && error.code !== "PGRST116") {
-        console.error("Get Store Error:", error);
+    if (error) {
+        console.error("Supabase Query Error:", error.message);
         return null;
     }
 
-    if (data) {
-        return data;
+    // data is an array because of .limit(1)
+    if (!data || data.length === 0) {
+        console.log("No store found for user:", user.id);
+        return null;
     }
 
-    const defaultStoreName = `Store-${user.id.slice(0, 8)}`;
-    const defaultSlug = defaultStoreName.toLowerCase();
+    console.log("Store found:", data[0].name);
+    return data[0];
+}
+export async function createStore(prevState: any, formData: FormData) {
+    console.log("--- CREATE STORE ACTION TRIGGERED ---");
+    const supabase = createClient();
 
-    const { data: newStore, error: createError } = await supabase
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: "You must be logged in" };
+
+    // 1. Extract all the new data from the Onboarding Form
+    const name = formData.get("name") as string;
+    const business_stage = formData.get("business_stage") as string;
+    const product_category = formData.get("product_category") as string;
+    const catalog_size = formData.get("catalog_size") as string;
+    const social_handle = formData.get("social_handle") as string;
+
+    // Create a clean URL slug (e.g. "Beirut Fashion" -> "beirut-fashion")
+    const slug = name.toLowerCase().replace(/ /g, "-").replace(/[^\w-]+/g, "");
+
+    // 2. Insert into database with the new columns
+    const { error } = await supabase
         .from("stores")
         .insert({
             owner_id: user.id,
-            name: "My Store",
-            slug: defaultSlug,
-            primary_color: "#2563eb",
+            name: name,
+            slug: slug,
+            business_stage: business_stage,
+            product_category: product_category,
+            catalog_size: catalog_size,
+            social_handle: social_handle,
+            // Defaults:
             currency_preference: "USD",
             lbp_rate: 89500,
-        })
-        .select()
+            is_whish_enabled: false
+        });
+
+    if (error) {
+        if (error.code === "23505") return { error: "This store name is already taken." };
+        console.error("Create Store Error:", error);
+        return { error: error.message };
+    } // <--- THIS BRACE MUST BE ABOVE THE REDIRECT
+
+    revalidatePath("/dashboard", "page");
+    revalidatePath("/", "layout");
+    redirect("/dashboard");
+}
+export async function createProduct(prevState: any, formData: FormData) {
+    const supabase = createClient();
+
+    // 1. Check Authentication
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: "You must be logged in to add products" };
+
+    // 2. Find the Store belonging to this user
+    // We need the store_id to link the product correctly
+    const { data: store, error: storeError } = await supabase
+        .from("stores")
+        .select("id")
+        .eq("owner_id", user.id)
         .single();
 
-    if (createError) {
-        console.error("Create Default Store Error:", createError);
-        return null;
+    if (storeError || !store) {
+        return { error: "Store not found. Please create a store first." };
     }
 
-    return newStore;
+    // 3. Extract Data from Form
+    const name = formData.get("name") as string;
+    const description = formData.get("description") as string;
+    const price = parseFloat(formData.get("price") as string);
+    const category = formData.get("category") as string;
+    // If you have an image upload, you'd handle the URL here. 
+    // For now, we'll assume a placeholder or a text URL input.
+    const image_url = formData.get("image_url") as string || null;
+
+    // 4. Validation
+    if (!name || !price) {
+        return { error: "Name and Price are required" };
+    }
+
+    // 5. Insert into Database
+    const { error } = await supabase
+        .from("products")
+        .insert({
+            store_id: store.id, // Links product to your store
+            name: name,
+            description: description,
+            price: price,
+            category: category, // The new column you added
+            image_url: image_url
+        });
+
+    if (error) {
+        console.error("Create Product Error:", error);
+        return { error: "Failed to create product" };
+    }
+
+    // 6. Refresh the Products Page
+    revalidatePath("/dashboard/products");
+    redirect("/dashboard/products");
+}
+export async function updateProduct(prevState: any, formData: FormData) {
+    const supabase = createClient();
+
+    // 1. Auth Check
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: "You must be logged in" };
+
+    // 2. Extract Data
+    // We expect the "id" to be passed as a hidden input in your form
+    const productId = formData.get("id") as string;
+    const name = formData.get("name") as string;
+    const description = formData.get("description") as string;
+    const price = parseFloat(formData.get("price") as string);
+    const category = formData.get("category") as string;
+
+    if (!productId) return { error: "Product ID is missing" };
+
+    // 3. Update Database
+    const { error } = await supabase
+        .from("products")
+        .update({
+            name,
+            description,
+            price,
+            category,
+            // Add image_url here if/when you handle file uploads
+        })
+        .eq("id", productId)
+        // The RLS policy you just ran ensures they can only update THEIR own products
+        .select();
+
+    if (error) {
+        console.error("Update Product Error:", error);
+        return { error: "Failed to update product" };
+    }
+
+    // 4. Redirect back to list
+    revalidatePath("/dashboard/products");
+    redirect("/dashboard/products");
+}
+export async function getStoreProducts(storeId: string, categoryFilter?: string) {
+    const supabase = createClient();
+
+    let query = supabase
+        .from("products")
+        .select("*")
+        .eq("store_id", storeId)
+        .order("created_at", { ascending: false });
+
+    // If a filter is provided, add it to the query
+    if (categoryFilter && categoryFilter !== "all") {
+        query = query.eq("category", categoryFilter);
+    }
+
+    const { data, error } = await query;
+    if (error) console.error("Error fetching products:", error);
+    return data || [];
+}
+export async function getUniqueCategories(storeId: string) {
+    const supabase = createClient();
+
+    // Fetch only the 'category' column for this store
+    const { data, error } = await supabase
+        .from("products")
+        .select("category")
+        .eq("store_id", storeId)
+        .not("category", "is", null); // Exclude nulls
+
+    if (error) {
+        console.error("Error fetching categories:", error);
+        return [];
+    }
+
+    // specific logic to remove duplicates (Set) and empty strings
+    const uniqueCategories = Array.from(new Set(data.map(item => item.category)))
+        .filter(cat => cat !== "") // Remove empty strings if any
+        .sort();
+
+    return uniqueCategories;
+}
+// In lib/actions.ts
+
+export async function getDashboardStats(storeId: string) {
+    const supabase = createClient();
+
+    // 1. Get Product Count
+    const { count: productCount } = await supabase
+        .from("products")
+        .select("*", { count: "exact", head: true })
+        .eq("store_id", storeId);
+
+    // 2. Get All Orders (for totals)
+    const { data: orders, error } = await supabase
+        .from("orders")
+        .select("*")
+        .eq("store_id", storeId)
+        .order("created_at", { ascending: false }); // Latest first
+
+    if (error) {
+        console.error("Error fetching orders:", error);
+        return {
+            productCount: productCount || 0,
+            orderCount: 0,
+            revenue: 0,
+            pendingCount: 0,
+            recentOrders: []
+        };
+    }
+
+    // 3. Calculate Stats
+    const orderCount = orders.length;
+    const revenue = orders.reduce((sum, order) => sum + (order.total_usd || 0), 0);
+
+    // Count how many are "pending" (Actionable metric!)
+    const pendingCount = orders.filter(o => o.status === 'pending').length;
+
+    // Get the last 5 orders for the table
+    const recentOrders = orders.slice(0, 5);
+
+    return {
+        productCount: productCount || 0,
+        orderCount: orderCount,
+        revenue: revenue,
+        pendingCount,
+        recentOrders
+    };
+}
+
+export async function getStoreOrders(storeId: string) {
+    const supabase = createClient();
+
+    const { data, error } = await supabase
+        .from("orders")
+        .select("*")
+        .eq("store_id", storeId)
+        .order("created_at", { ascending: false }); // Newest first
+
+    if (error) {
+        console.error("Error fetching orders:", error);
+        return [];
+    }
+
+    return data;
+}
+// Add to lib/actions.ts
+
+export async function getOrderDetails(orderId: string) {
+    const supabase = createClient();
+
+    // 1. Fetch the Order Info
+    const { data: order, error: orderError } = await supabase
+        .from("orders")
+        .select("*")
+        .eq("id", orderId)
+        .single();
+
+    if (orderError || !order) return null;
+
+    // 2. Fetch the Items inside that order
+    const { data: items, error: itemsError } = await supabase
+        .from("order_items")
+        .select("*")
+        .eq("order_id", orderId);
+
+    return {
+        ...order,
+        items: items || []
+    };
+}
+// Fetch store details by SLUG (Public)
+export async function getPublicStoreBySlug(slug: string) {
+    const supabase = createClient();
+
+    // 1. Get the Store ID first using the slug
+    const { data: store } = await supabase
+        .from("stores")
+        .select("*")
+        .eq("slug", slug)
+        .single();
+
+    return store;
+}
+export async function getPublicProducts(storeId: string) {
+    const supabase = createClient();
+
+    const { data } = await supabase
+        .from("products")
+        .select("*")
+        .eq("store_id", storeId)
+        .eq("active", true); // Only show active products
+
+    return data || [];
 }
