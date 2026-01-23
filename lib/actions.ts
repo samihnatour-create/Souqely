@@ -261,17 +261,48 @@ export async function createStore(prevState: any, formData: FormData) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { error: "You must be logged in" };
 
-    // 1. Extract all the new data from the Onboarding Form
+    // 1. Extract Text Data
     const name = formData.get("name") as string;
     const business_stage = formData.get("business_stage") as string;
     const product_category = formData.get("product_category") as string;
     const catalog_size = formData.get("catalog_size") as string;
     const social_handle = formData.get("social_handle") as string;
+    const primary_color = formData.get("primary_color") as string || "#2563eb";
 
-    // Create a clean URL slug (e.g. "Beirut Fashion" -> "beirut-fashion")
+    // 2. Create Slug
     const slug = name.toLowerCase().replace(/ /g, "-").replace(/[^\w-]+/g, "");
 
-    // 2. Insert into database with the new columns
+    // 3. HANDLE FILE UPLOAD (New Logic)
+    const logoFile = formData.get("logo") as File; // We will name the input "logo"
+    let logo_url = null;
+
+    if (logoFile && logoFile.size > 0) {
+        // Create a unique filename: store-slug + timestamp
+        const filename = `${slug}-${Date.now()}-${logoFile.name}`;
+
+        const { data, error: uploadError } = await supabase
+            .storage
+            .from("store-logos") // Must match the bucket name you created
+            .upload(filename, logoFile, {
+                cacheControl: '3600',
+                upsert: false
+            });
+
+        if (uploadError) {
+            console.error("Upload failed:", uploadError);
+            // We continue without logo if upload fails, or you can return an error
+        } else {
+            // Get the Public URL
+            const { data: { publicUrl } } = supabase
+                .storage
+                .from("store-logos")
+                .getPublicUrl(filename);
+
+            logo_url = publicUrl;
+        }
+    }
+
+    // 4. Insert into Database
     const { error } = await supabase
         .from("stores")
         .insert({
@@ -282,7 +313,8 @@ export async function createStore(prevState: any, formData: FormData) {
             product_category: product_category,
             catalog_size: catalog_size,
             social_handle: social_handle,
-            // Defaults:
+            logo_url: logo_url, // Saved the generated URL
+            primary_color: primary_color,
             currency_preference: "USD",
             lbp_rate: 89500,
             is_whish_enabled: false
@@ -290,9 +322,8 @@ export async function createStore(prevState: any, formData: FormData) {
 
     if (error) {
         if (error.code === "23505") return { error: "This store name is already taken." };
-        console.error("Create Store Error:", error);
         return { error: error.message };
-    } // <--- THIS BRACE MUST BE ABOVE THE REDIRECT
+    }
 
     revalidatePath("/dashboard", "page");
     revalidatePath("/", "layout");
