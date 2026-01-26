@@ -4,6 +4,7 @@ import { NextResponse, type NextRequest } from "next/server";
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request: { headers: request.headers } });
 
+  // 1. SUPABASE SESSION HANDLER (Keep exactly as is)
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -25,17 +26,17 @@ export async function middleware(request: NextRequest) {
   );
 
   const { data: { user } } = await supabase.auth.getUser();
-  const path = request.nextUrl.pathname;
+  const url = request.nextUrl;
+  const path = url.pathname;
+  const hostname = request.headers.get("host");
 
-  // Define all protected routes here
+  // 2. AUTH & VERIFICATION GUARDS (Keep your existing logic)
   const isProtectedRoute = path.startsWith("/dashboard") || path.startsWith("/settings");
 
-  // 1. If not logged in and trying to access a protected area
   if (!user && isProtectedRoute) {
     return NextResponse.redirect(new URL("/auth/login", request.url));
   }
 
-  // 2. Verification Guard
   if (user && isProtectedRoute) {
     const { data: profile } = await supabase
       .from("profiles")
@@ -43,19 +44,26 @@ export async function middleware(request: NextRequest) {
       .eq("id", user.id)
       .single();
 
-    // If they are logged in but NOT verified, force them to the verify page
-    if (profile && !profile.is_verified) {
-      // Only redirect if they aren't already on the verify page (prevents loops)
-      if (path !== "/auth/verify") {
-        return NextResponse.redirect(new URL("/auth/verify", request.url));
-      }
+    if (profile && !profile.is_verified && path !== "/auth/verify") {
+      return NextResponse.redirect(new URL("/auth/verify", request.url));
     }
+  }
+
+  // 3. SUBDOMAIN REWRITER (New addition)
+  const rootDomain = process.env.NODE_ENV === "production" ? "souqely.com" : "localhost:3000";
+  const subdomain = hostname?.replace(`.${rootDomain}`, "");
+
+  // If a merchant subdomain exists and it's not the main site or www
+  if (subdomain && subdomain !== rootDomain && subdomain !== "www") {
+    // This internally points [slug].souqely.com to /store/[slug]
+    return NextResponse.rewrite(
+      new URL(`/store/${subdomain}${path}`, request.url)
+    );
   }
 
   return response;
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
-  ],
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"],
 };

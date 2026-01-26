@@ -576,3 +576,60 @@ export async function getPublicProducts(storeId: string) {
 
     return data || [];
 }
+// Define the Trust Badge Shape
+type TrustBadge = {
+    icon: string;
+    title: string;
+    desc: string;
+};
+
+// 1. Define the Input Type
+type StoreDesignData = {
+    primary_color: string;
+    hero_title: string;
+    hero_subtitle: string;
+    announcement_text: string;
+    button_radius: string;
+    font_family: string;
+    background_color: string;
+    text_color: string;
+    hero_align: string;
+    card_style: string;
+    hero_badge_text: string;
+    trust_badges: TrustBadge[];
+};
+
+// 2. Define the Output Type (The Fix)
+type ActionResponse = {
+    success: boolean;
+    error?: string; // <--- This tells TS that 'error' is optional but valid
+};
+
+export async function updateStoreDesign(storeId: string, data: StoreDesignData): Promise<ActionResponse> {
+    const supabase = createClient();
+
+    const { error } = await supabase
+        .from("stores")
+        .update({
+            primary_color: data.primary_color,
+            hero_title: data.hero_title,
+            hero_subtitle: data.hero_subtitle,
+            announcement_text: data.announcement_text,
+            button_radius: data.button_radius,
+            font_family: data.font_family,
+            background_color: data.background_color,
+            text_color: data.text_color,
+            hero_align: data.hero_align,
+            card_style: data.card_style,
+            hero_badge_text: data.hero_badge_text,
+            trust_badges: data.trust_badges
+        })
+        .eq("id", storeId);
+
+    if (error) {
+        return { success: false, error: error.message };
+    }
+
+    revalidatePath("/dashboard/design");
+    return { success: true };
+}
