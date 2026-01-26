@@ -113,7 +113,10 @@ export default function CartPage({ params }: { params: { slug: string } }) {
               <span className="font-black text-3xl tracking-tight">${cartTotal.toFixed(2)}</span>
             </div>
 
-            <Link href={`/store/${params.slug}/checkout`} className="w-full">
+            <Link href={
+              process.env.NODE_ENV === 'development'
+                ? `http://${params.slug}.localhost:3000/checkout`
+                : `https://${params.slug}.souqely.com/checkout`} className="w-full">
               <Button size="lg" className="w-full h-14 text-base font-bold shadow-xl hover:scale-[1.02] transition-transform">
                 Proceed to Checkout <ArrowRight className="w-5 h-5 ml-2" />
               </Button>

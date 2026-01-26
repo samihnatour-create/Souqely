@@ -119,7 +119,7 @@ export function CartSheet({ trigger, slug, color, radius }: CartSheetProps) {
                             <span className="font-black text-lg">${cartTotal.toFixed(2)}</span>
                         </div>
 
-                        <Link href={`/store/${slug}/checkout`} onClick={() => setOpen(false)} className="block">
+                        <Link href={`/checkout`} onClick={() => setOpen(false)} className="block">
                             <Button
                                 className="w-full h-12 text-base font-bold shadow-xl hover:brightness-110 hover:scale-[1.02] transition-all active:scale-[0.98]"
                                 style={{ backgroundColor: color, borderRadius: radius }}

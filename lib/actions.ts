@@ -633,3 +633,43 @@ export async function updateStoreDesign(storeId: string, data: StoreDesignData):
     revalidatePath("/dashboard/design");
     return { success: true };
 }
+export async function getProductById(productId: string) {
+    const supabase = createClient();
+
+    const { data, error } = await supabase
+        .from("products")
+        .select("*")
+        .eq("id", productId)
+        .maybeSingle();
+
+    if (error) {
+        console.error("Error fetching product by ID:", error.message);
+        return null;
+    }
+
+    return data;
+}
+export async function createOrder(orderData: any) {
+    const supabase = createClient();
+
+    const { data, error } = await supabase
+        .from("orders")
+        .insert([
+            {
+                store_slug: orderData.store_slug,
+                customer_name: orderData.customer_name,
+                customer_phone: orderData.customer_phone,
+                customer_address: orderData.customer_address,
+                items: orderData.items,
+                total_amount: orderData.total,
+                status: 'pending'
+            }
+        ])
+        .select();
+
+    if (error) {
+        return { success: false, error: error.message };
+    }
+
+    return { success: true, data };
+}
