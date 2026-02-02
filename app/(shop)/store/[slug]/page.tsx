@@ -3,11 +3,14 @@ import { notFound } from "next/navigation";
 import { CartSheet } from "@/components/store/cart-sheet";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { PoweredByFooter } from "@/components/store/powered-by"; // 🟢 Import Global Footer
 
 // 🟢 IMPORT TEMPLATES
 import ModernGrid from "@/components/templates/modern-grid";
 import TechCyber from "@/components/templates/tech-cyber";
-// import ClassicList from "@/components/templates/classic-list"; // Ready for later
+import ClassicList from "@/components/templates/classic-list";
+import MinimalistBold from "@/components/templates/minimalist-bold";
+import VibrantPop from "@/components/templates/vibrant-pop";
 
 export const dynamic = "force-dynamic";
 
@@ -33,12 +36,26 @@ export default async function StorePage({
   const products = await getPublicProducts(store.id);
 
   // 2. TEMPLATE REGISTRY
-  // This maps the database string to the React Component
   const TEMPLATES: Record<string, React.ComponentType<any>> = {
+    // 1. Fashion/General
     "modern-grid": ModernGrid,
+    "modern": ModernGrid,
+
+    // 2. Electronics/Gaming
     "tech-cyber": TechCyber,
-    "classic-list": ModernGrid, // Fallback until you build it
-    "minimalist": ModernGrid,   // Fallback until you build it
+    "tech": TechCyber,
+
+    // 3. Food/Grocery
+    "classic-list": ClassicList,
+    "list": ClassicList,
+
+    // 4. Minimalist
+    "minimalist-bold": MinimalistBold,
+    "minimalist": MinimalistBold,
+
+    // 5. Vibrant
+    "vibrant-pop": VibrantPop,
+    "vibrant": VibrantPop,
   };
 
   // 3. SELECT TEMPLATE
@@ -46,22 +63,27 @@ export default async function StorePage({
   const SelectedTemplate = TEMPLATES[store.template || "modern-grid"] || ModernGrid;
 
   return (
-    <>
+    <main className="min-h-screen flex flex-col">
       {/* 4. RENDER SELECTED TEMPLATE */}
-      {/* We pass searchParams so the Live Editor still works! */}
-      <SelectedTemplate
-        store={store}
-        products={products}
-        searchParams={searchParams}
-      />
+      {/* Flex-1 ensures it takes up all available space, pushing footer down */}
+      <div className="flex-1">
+        <SelectedTemplate
+          store={store}
+          products={products}
+          searchParams={searchParams}
+        />
+      </div>
 
-      {/* 5. GLOBAL CART (Always present) */}
+      {/* 5. GLOBAL FOOTER (Auto-adapts to theme) */}
+      <PoweredByFooter store={store} />
+
+      {/* 6. GLOBAL CART (Hidden until triggered) */}
       <CartSheet
         slug={params.slug}
-        color={searchParams.primary_color || store.primary_color} // Reactive to editor
+        color={searchParams.primary_color || store.primary_color}
         radius={searchParams.button_radius || store.button_radius}
         trigger={null}
       />
-    </>
+    </main>
   );
 }

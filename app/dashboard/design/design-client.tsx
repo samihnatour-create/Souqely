@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-// 🟢 FIXED IMPORTS: Added 'Check' and 'Zap', removed unused 'List'
-import { Palette, Save, Layout, Monitor, Copy, ShieldCheck, Grid, Zap, Upload, X, Check, Image as ImageIcon } from "lucide-react";
+import { Palette, Save, Layout, Monitor, Copy, ShieldCheck, Grid, Zap, List, Gem, Star, Upload, X, Check, Image as ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,6 +29,7 @@ export default function DesignPageClient({ store }: { store: any }) {
     const [design, setDesign] = useState({
         template: store.template || "modern",
         logo_url: store.logo_url || "",
+        hero_image_url: store.hero_image_url || "",
         primary_color: store.primary_color || "#2563eb",
         background_color: store.background_color || "#ffffff",
         text_color: store.text_color || "#0f172a",
@@ -49,6 +49,7 @@ export default function DesignPageClient({ store }: { store: any }) {
     const [uploading, setUploading] = useState(false);
     const [previewUrl, setPreviewUrl] = useState(`http://${store.slug}.localhost:3000`);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const heroInputRef = useRef<HTMLInputElement>(null);
 
     const updateField = (field: string, value: string) => {
         setDesign(prev => ({ ...prev, [field]: value }));
@@ -60,7 +61,7 @@ export default function DesignPageClient({ store }: { store: any }) {
         setDesign(prev => ({ ...prev, trust_badges: newBadges }));
     };
 
-    const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, fieldName: 'logo_url' | 'hero_image_url') => {
         if (!e.target.files || e.target.files.length === 0) return;
 
         const file = e.target.files[0];
@@ -69,22 +70,26 @@ export default function DesignPageClient({ store }: { store: any }) {
         try {
             const supabase = createClient();
             const fileExt = file.name.split('.').pop();
-            const fileName = `logo-${Date.now()}.${fileExt}`;
+            const fileName = `${fieldName}-${Date.now()}.${fileExt}`;
             const filePath = `${store.id}/${fileName}`;
+
+            // 🟢 DYNAMIC BUCKET SELECTION
+            // If uploading hero, use 'hero-images'. If logo, use 'store-logos' (or whatever your logo bucket is named)
+            const bucketName = fieldName === 'hero_image_url' ? 'hero-images' : 'store-logos';
 
             // 1. Upload
             const { error: uploadError } = await supabase.storage
-                .from('store-logos')
+                .from(bucketName)
                 .upload(filePath, file);
 
             if (uploadError) throw uploadError;
 
             // 2. Get URL
             const { data: { publicUrl } } = supabase.storage
-                .from('store-logos')
+                .from(bucketName)
                 .getPublicUrl(filePath);
 
-            updateField('logo_url', publicUrl);
+            updateField(fieldName, publicUrl);
             toast.success("Logo uploaded!");
         } catch (error: any) {
             console.error(error);
@@ -141,7 +146,10 @@ export default function DesignPageClient({ store }: { store: any }) {
                         <div className="grid grid-cols-2 gap-4">
                             {[
                                 { id: 'modern-grid', name: 'Modern Grid', icon: Grid, desc: 'Fashion & Shoes' },
-                                { id: 'tech-cyber', name: 'Tech Cyber', icon: Zap, desc: 'Electronics' }
+                                { id: 'tech-cyber', name: 'Tech Cyber', icon: Zap, desc: 'Electronics' },
+                                { id: 'classic-list', name: 'Classic List', icon: List, desc: 'Food & Grocery' },
+                                { id: 'minimalist-bold', name: 'Luxury Minimal', icon: Gem, desc: 'Jewelry & Art' },
+                                { id: 'vibrant-pop', name: 'Vibrant Pop', icon: Star, desc: 'Toys & Gifts' },
                             ].map((tpl) => (
                                 <button
                                     key={tpl.id}
@@ -201,7 +209,7 @@ export default function DesignPageClient({ store }: { store: any }) {
                                 <input
                                     type="file"
                                     ref={fileInputRef}
-                                    onChange={handleLogoUpload}
+                                    onChange={(e) => handleImageUpload(e, 'logo_url')}
                                     accept="image/*"
                                     className="hidden"
                                 />
@@ -294,7 +302,39 @@ export default function DesignPageClient({ store }: { store: any }) {
                         <div className="flex items-center gap-2 text-blue-600 font-bold text-[10px] uppercase tracking-widest">
                             <Layout className="w-3 h-3" /> Hero Section
                         </div>
+                        {/* 🟢 HERO IMAGE UPLOAD */}
+                        <div className="space-y-3">
+                            <Label>Hero Background / Featured Image</Label>
+                            <input
+                                type="file"
+                                ref={heroInputRef}
+                                onChange={(e) => handleImageUpload(e, 'hero_image_url')}
+                                accept="image/*"
+                                className="hidden"
+                            />
+                            <div className="border-2 border-dashed border-slate-200 rounded-xl p-4 hover:bg-slate-50 transition-colors text-center cursor-pointer relative overflow-hidden group"
+                                onClick={() => heroInputRef.current?.click()}>
 
+                                {design.hero_image_url ? (
+                                    <>
+                                        <img src={design.hero_image_url} className="w-full h-32 object-cover rounded-lg opacity-50 group-hover:opacity-100 transition-opacity" />
+                                        <div className="absolute inset-0 flex items-center justify-center">
+                                            <span className="bg-white/90 px-3 py-1 rounded-full text-xs font-bold shadow-sm">Change Image</span>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div className="py-4">
+                                        <ImageIcon className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                                        <p className="text-xs text-slate-500 font-medium">Click to upload hero image</p>
+                                    </div>
+                                )}
+                            </div>
+                            {design.hero_image_url && (
+                                <Button variant="ghost" size="sm" onClick={() => updateField('hero_image_url', "")} className="w-full text-red-500 h-8 text-xs">
+                                    Remove Hero Image
+                                </Button>
+                            )}
+                        </div>
                         <div>
                             <Label>Alignment</Label>
                             <div className="flex gap-2 mt-2 bg-slate-100 p-1 rounded-lg w-fit">

@@ -610,6 +610,7 @@ type StoreDesignData = {
     header_name?: string;
     logo_url?: string;
     updated_at?: string;
+    hero_image_url?: string;
 };
 
 // 2. Define the Output Type
@@ -643,6 +644,7 @@ export async function updateStoreDesign(storeId: string, data: StoreDesignData):
             header_name: data.header_name,
             updated_at: new Date().toISOString(),
             logo_url: data.logo_url,
+            hero_image_url: data.hero_image_url,
         })
         .eq("id", storeId);
 

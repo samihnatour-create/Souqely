@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase-server"; // Use Server Client
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Package, Edit, AlertCircle } from "lucide-react"; // Added Icons
+import { Plus, Package, Edit } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { formatCurrency } from "@/lib/utils";
@@ -15,9 +15,11 @@ export default async function ProductsPage() {
   if (!store) return <div>Store not found</div>;
 
   const supabase = createClient();
+
+  // 🟢 1. FETCH PRODUCTS + VARIANTS
   const { data: products } = await supabase
     .from("products")
-    .select("*")
+    .select("*, product_variants(*)") // Fetch variants relation
     .eq("store_id", store.id)
     .order("created_at", { ascending: false });
 
@@ -45,10 +47,17 @@ export default async function ProductsPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {products.map((product) => {
-            // Logic for Stock Color
-            const stock = product.stock || 0;
-            const isOutOfStock = stock === 0;
-            const isLowStock = stock > 0 && stock < 10;
+
+            // 🟢 2. SMART STOCK CALCULATION
+            const hasVariants = product.product_variants && product.product_variants.length > 0;
+
+            // If variants exist, sum their stock. Otherwise use product.stock
+            const totalStock = hasVariants
+              ? product.product_variants.reduce((acc: number, v: any) => acc + (v.stock || 0), 0)
+              : (product.stock || 0);
+
+            const isOutOfStock = totalStock <= 0;
+            const isLowStock = totalStock > 0 && totalStock < 10;
 
             return (
               <Card key={product.id} className="overflow-hidden flex flex-col group hover:shadow-lg transition-all">
@@ -77,15 +86,15 @@ export default async function ProductsPage() {
                     )}
                   </div>
 
-                  {/* 📦 STOCK BADGE (Top Right) - NEW */}
+                  {/* 📦 STOCK BADGE (Top Right) */}
                   <div className="absolute top-2 right-2">
                     <Badge className={`
                         shadow-sm border-0
                         ${isOutOfStock ? 'bg-red-500 hover:bg-red-600 text-white' : ''}
                         ${isLowStock ? 'bg-orange-400 hover:bg-orange-500 text-white' : ''}
                         ${!isLowStock && !isOutOfStock ? 'bg-green-500 hover:bg-green-600 text-white' : ''}
-                     `}>
-                      {isOutOfStock ? "Out of Stock" : `${stock} in stock`}
+                      `}>
+                      {isOutOfStock ? "Out of Stock" : `${totalStock} in stock`}
                     </Badge>
                   </div>
                 </div>
@@ -100,13 +109,35 @@ export default async function ProductsPage() {
                   <p className="text-sm text-muted-foreground capitalize">{product.category}</p>
                 </CardHeader>
 
-                <CardContent className="p-4 pt-0 flex-grow">
-                  <div className="flex items-baseline gap-2 mt-2">
+                <CardContent className="p-4 pt-0 flex-grow flex flex-col">
+                  <div className="flex items-baseline gap-2 mt-2 mb-4">
                     <span className="text-lg font-black">${product.price_usd}</span>
                     <span className="text-xs text-muted-foreground">
                       ({formatCurrency(product.price_usd * (store.lbp_rate || 89500), "LBP")})
                     </span>
                   </div>
+
+                  {/* 🟢 3. VARIANTS MINI-TABLE */}
+                  {hasVariants && (
+                    <div className="mt-auto bg-slate-50 p-2 rounded-lg border border-slate-100 text-xs">
+                      <div className="flex justify-between items-center mb-1 pb-1 border-b border-slate-200">
+                        <span className="font-bold text-slate-400 uppercase text-[10px]">Variant</span>
+                        <span className="font-bold text-slate-400 uppercase text-[10px]">Stock</span>
+                      </div>
+                      <div className="space-y-1 max-h-[60px] overflow-y-auto custom-scrollbar">
+                        {product.product_variants.map((v: any) => (
+                          <div key={v.id} className="flex justify-between items-center">
+                            <span className="truncate max-w-[120px] font-medium text-slate-700">
+                              {v.name || v.size || v.color}
+                            </span>
+                            <span className={`font-mono ${v.stock <= 0 ? 'text-red-500 font-bold' : 'text-slate-600'}`}>
+                              {v.stock}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
 
                 {/* FOOTER ACTIONS */}
