@@ -14,6 +14,7 @@
   is_whish_enabled: boolean;
   is_omt_enabled: boolean;
   created_at: string;
+  telegram_chat_id?: string | null;
 };
 
 export type Product = {
