@@ -1,55 +1,60 @@
 import { getOrderDetails } from "@/lib/actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Separator } from "@/components/ui/separator";
-import { ChevronLeft, MapPin, User, CreditCard } from "lucide-react";
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog"; // Import Dialog
+import { ArrowLeft, MapPin, Phone, User, Calendar, CreditCard, Maximize2 } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
-import { formatCurrency } from "@/lib/utils";
-import { redirect } from "next/navigation";
-
-export const dynamic = "force-dynamic";
+import OrderActions from "../_components/order-actions";
 
 export default async function OrderDetailsPage({ params }: { params: { id: string } }) {
     const order = await getOrderDetails(params.id);
 
-    if (!order) {
-        return <div>Order not found</div>;
-    }
+    if (!order) return <div className="p-10 text-center">Order not found</div>;
 
     return (
         <div className="flex flex-col gap-6 p-6 max-w-5xl mx-auto">
 
-            {/* HEADER & BACK BUTTON */}
-            <div className="flex items-center gap-4">
-                <Link href="/dashboard/orders">
-                    <Button variant="outline" size="icon" className="h-8 w-8">
-                        <ChevronLeft className="h-4 w-4" />
-                    </Button>
-                </Link>
-                <div className="flex-1">
-                    <div className="flex items-center gap-3">
-                        <h1 className="text-xl font-bold tracking-tight">Order {order.id.slice(0, 8)}...</h1>
-                        <Badge variant={order.status === 'completed' ? 'default' : 'secondary'}>
-                            {order.status}
-                        </Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                        Placed on {new Date(order.created_at).toLocaleDateString()} at {new Date(order.created_at).toLocaleTimeString()}
-                    </p>
+            {/* 1. HEADER: Back Button, Title, Status & Quick Actions */}
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                    <Link href="/dashboard/orders">
+                        <Button variant="outline" size="sm">
+                            <ArrowLeft className="w-4 h-4 mr-2" /> Back
+                        </Button>
+                    </Link>
+                    <h1 className="text-2xl font-bold tracking-tight">Order #{order.id.slice(0, 8)}</h1>
+
+                    {/* Status Badge (Matched Colors) */}
+                    <Badge variant="outline" className={`
+            capitalize px-3 py-1 text-sm border-0
+            ${order.status === 'shipped' ? 'bg-blue-100 text-blue-700' : ''}
+            ${order.status === 'pending' ? 'bg-orange-100 text-orange-700' : ''}
+            ${order.status === 'completed' ? 'bg-green-100 text-green-700' : ''}
+            ${order.status === 'cancelled' ? 'bg-red-100 text-red-700' : ''}
+            ${order.status === 'awaiting_approval' ? 'bg-purple-100 text-purple-700' : ''}
+          `}>
+                        {order.status.replace('_', ' ')}
+                    </Badge>
                 </div>
-                {/* Optional: Add "Print" or "Refund" buttons here later */}
+
+                <div className="flex gap-2">
+                    {/* Reuse your existing actions (Accept/WhatsApp) */}
+                    <OrderActions order={order} />
+                </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
-                {/* LEFT COLUMN: ORDER ITEMS */}
-                <div className="md:col-span-2 space-y-6">
+                {/* 2. LEFT COLUMN: Items & Payment Proof */}
+                <div className="md:col-span-2 flex flex-col gap-6">
+
+                    {/* ITEMS LIST */}
                     <Card>
                         <CardHeader>
-                            <CardTitle>Order Items</CardTitle>
-                            <CardDescription>Products purchased in this order</CardDescription>
+                            <CardTitle>Items Ordered</CardTitle>
                         </CardHeader>
                         <CardContent>
                             <Table>
@@ -62,97 +67,137 @@ export default async function OrderDetailsPage({ params }: { params: { id: strin
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {order.items.length === 0 ? (
-                                        <TableRow>
-                                            <TableCell colSpan={4} className="text-center text-muted-foreground py-6">
-                                                No items found (Legacy order)
+                                    {order.order_items.map((item: any) => (
+                                        <TableRow key={item.id}>
+                                            <TableCell className="font-medium">{item.product_name}</TableCell>
+                                            <TableCell className="text-right">${item.price_at_purchase}</TableCell>
+                                            <TableCell className="text-right">x{item.quantity}</TableCell>
+                                            <TableCell className="text-right font-bold">
+                                                ${(item.price_at_purchase * item.quantity).toFixed(2)}
                                             </TableCell>
                                         </TableRow>
-                                    ) : (
-                                        order.items.map((item: any) => (
-                                            <TableRow key={item.id}>
-                                                <TableCell className="font-medium">{item.product_name}</TableCell>
-                                                <TableCell className="text-right">{formatCurrency(item.price_at_purchase)}</TableCell>
-                                                <TableCell className="text-right">{item.quantity}</TableCell>
-                                                <TableCell className="text-right">
-                                                    {formatCurrency(item.price_at_purchase * item.quantity)}
-                                                </TableCell>
-                                            </TableRow>
-                                        ))
-                                    )}
+                                    ))}
+                                    <TableRow>
+                                        <TableCell colSpan={3} className="text-right font-bold pt-4 text-slate-500">Total Amount:</TableCell>
+                                        <TableCell className="text-right font-black text-xl pt-4">
+                                            ${order.total_usd}
+                                        </TableCell>
+                                    </TableRow>
                                 </TableBody>
                             </Table>
-
-                            {/* TOTALS SECTION */}
-                            <div className="mt-6 flex flex-col items-end space-y-2 text-sm">
-                                <div className="flex w-1/3 justify-between">
-                                    <span className="text-muted-foreground">Subtotal</span>
-                                    <span>{formatCurrency(order.total_usd)}</span>
-                                </div>
-                                <div className="flex w-1/3 justify-between font-bold text-base pt-2 border-t">
-                                    <span>Total</span>
-                                    <span>{formatCurrency(order.total_usd)}</span>
-                                </div>
-                                <div className="text-xs text-muted-foreground">
-                                    Rate: {formatCurrency(order.lbp_rate_at_order || 89500).replace("$", "LBP ")}
-                                </div>
-                            </div>
                         </CardContent>
                     </Card>
+
+                    {/* 🔍 CLICKABLE PAYMENT PROOF CARD */}
+                    {order.payment_screenshot_url && (
+                        <Card className="overflow-hidden border-2 border-slate-100">
+                            <CardHeader className="bg-slate-50/50 pb-4">
+                                <CardTitle className="flex items-center gap-2 text-base">
+                                    <CreditCard className="w-5 h-5 text-slate-500" />
+                                    Payment Proof
+                                    <span className="text-xs font-normal text-slate-400 ml-auto">Click image to zoom</span>
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-0">
+                                <Dialog>
+                                    <DialogTrigger asChild>
+                                        {/* Interactive Trigger */}
+                                        <div className="relative w-full aspect-video min-h-[300px] cursor-pointer group bg-slate-100">
+                                            <Image
+                                                src={order.payment_screenshot_url}
+                                                alt="Payment Proof"
+                                                fill
+                                                className="object-contain group-hover:opacity-90 transition-opacity"
+                                                unoptimized
+                                            />
+                                            {/* Zoom Overlay */}
+                                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/10">
+                                                <div className="bg-white/90 p-3 rounded-full shadow-lg">
+                                                    <Maximize2 className="w-6 h-6 text-slate-800" />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </DialogTrigger>
+
+                                    {/* Full Screen Popup */}
+                                    <DialogContent className="max-w-4xl h-[90vh] p-0 overflow-hidden bg-black flex items-center justify-center border-none">
+                                        <div className="relative w-full h-full">
+                                            <Image
+                                                src={order.payment_screenshot_url}
+                                                alt="Payment Proof Fullscreen"
+                                                fill
+                                                className="object-contain"
+                                                unoptimized
+                                            />
+                                        </div>
+                                    </DialogContent>
+                                </Dialog>
+
+                                <div className="p-4 bg-white border-t flex justify-between items-center text-sm">
+                                    <span className="text-slate-500">Method:</span>
+                                    <Badge variant="secondary" className="uppercase font-bold tracking-wider">
+                                        {order.payment_method}
+                                    </Badge>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
                 </div>
 
-                {/* RIGHT COLUMN: CUSTOMER DETAILS */}
-                <div className="space-y-6">
-                    {/* Customer Info */}
+                {/* 3. RIGHT COLUMN: Customer Details */}
+                <div className="md:col-span-1 space-y-6">
                     <Card>
                         <CardHeader>
-                            <CardTitle className="text-sm font-medium text-muted-foreground">Customer</CardTitle>
+                            <CardTitle>Customer Details</CardTitle>
                         </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="flex items-center gap-3">
-                                <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center">
-                                    <User className="h-5 w-5 text-slate-500" />
+                        <CardContent className="space-y-6">
+                            <div className="flex items-start gap-3">
+                                <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
+                                    <User className="w-5 h-5 text-slate-500" />
                                 </div>
                                 <div>
-                                    <div className="font-semibold">{order.customer_name}</div>
-                                    <div className="text-xs text-muted-foreground">{order.customer_email || "No email"}</div>
-                                    <div className="text-xs text-muted-foreground">{order.customer_phone || "No phone"}</div>
+                                    <p className="font-bold text-slate-900">{order.customer_name || "Guest"}</p>
+                                    <p className="text-xs text-slate-500 uppercase font-bold tracking-wider">Name</p>
                                 </div>
                             </div>
-                            <Separator />
-                            <div className="flex items-start gap-3">
-                                <MapPin className="h-4 w-4 text-slate-500 mt-1" />
-                                <div className="text-sm">
-                                    <div className="font-medium mb-1">Shipping Address</div>
-                                    <p className="text-muted-foreground leading-snug">
-                                        {order.customer_address || "No address provided"}
-                                    </p>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
 
-                    {/* Payment Info */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="text-sm font-medium text-muted-foreground">Payment</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                            <div className="flex items-center gap-2 text-sm">
-                                <CreditCard className="h-4 w-4" />
-                                <span className="capitalize">{order.payment_method?.replace("_", " ") || "Cash"}</span>
-                            </div>
-                            {/* If you have screenshots, display them here */}
-                            {order.payment_screenshot && (
-                                <div className="rounded-md border p-1 bg-slate-50">
-                                    <p className="text-xs text-center text-muted-foreground mb-1">Receipt</p>
-                                    {/* <img src={order.payment_screenshot} ... /> */}
-                                    <div className="text-xs text-center text-blue-600 underline cursor-pointer">View Receipt</div>
+                            <div className="flex items-start gap-3">
+                                <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
+                                    <Phone className="w-5 h-5 text-slate-500" />
                                 </div>
-                            )}
+                                <div>
+                                    <p className="font-bold text-slate-900">{order.customer_phone}</p>
+                                    <p className="text-xs text-slate-500 uppercase font-bold tracking-wider">Phone</p>
+                                </div>
+                            </div>
+
+                            <div className="flex items-start gap-3">
+                                <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
+                                    <MapPin className="w-5 h-5 text-slate-500" />
+                                </div>
+                                <div>
+                                    <p className="font-bold text-slate-900 leading-snug">{order.customer_address}</p>
+                                    <p className="text-xs text-slate-500 uppercase font-bold tracking-wider mt-1">Address</p>
+                                </div>
+                            </div>
+
+                            <div className="border-t pt-4">
+                                <div className="flex items-start gap-3">
+                                    <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
+                                        <Calendar className="w-5 h-5 text-slate-500" />
+                                    </div>
+                                    <div>
+                                        <p className="font-bold text-slate-900">
+                                            {new Date(order.created_at).toLocaleDateString()}
+                                        </p>
+                                        <p className="text-xs text-slate-500 uppercase font-bold tracking-wider">Placed On</p>
+                                    </div>
+                                </div>
+                            </div>
                         </CardContent>
                     </Card>
                 </div>
+
             </div>
         </div>
     );

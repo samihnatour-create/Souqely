@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { updateStoreSettings } from "@/lib/actions";
 import { Store } from "@/types";
-import { Loader2 } from "lucide-react";
+import { Loader2, Send } from "lucide-react"; // 🟢 Added 'Send' icon
 
 export default function SettingsForm({ store }: { store: Store }) {
   const [isLoading, setIsLoading] = useState(false);
@@ -16,6 +16,7 @@ export default function SettingsForm({ store }: { store: Store }) {
 
   const [isWhishEnabled, setIsWhishEnabled] = useState(store?.is_whish_enabled || false);
   const [isOmtEnabled, setIsOmtEnabled] = useState(store?.is_omt_enabled || false);
+
   async function handleSubmit(formData: FormData) {
     setIsLoading(true);
     setMessage(null);
@@ -55,6 +56,50 @@ export default function SettingsForm({ store }: { store: Store }) {
           <div className="grid gap-3">
             <Label htmlFor="phone">Phone Number</Label>
             <Input id="phone" name="phone" defaultValue={store?.phone || ""} placeholder="+961 3 123456" />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 🟢 NEW: Order Notifications (Telegram) */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Order Notifications</CardTitle>
+          <CardDescription>
+            Receive instant alerts on your phone when you get a new order.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-6">
+          <div className="border p-4 rounded-xl bg-blue-50/50 border-blue-100 space-y-4">
+            <div className="flex items-center gap-2">
+              <div className="p-2 bg-blue-100 rounded-lg text-blue-600">
+                <Send className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-900">Telegram Alerts</h3>
+                <p className="text-xs text-slate-500">Connect your Telegram account.</p>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="telegram_chat_id">Telegram Chat ID</Label>
+              <Input
+                id="telegram_chat_id"
+                name="telegram_chat_id"
+                defaultValue={store?.telegram_chat_id || ""}
+                placeholder="e.g. 123456789"
+                className="bg-white"
+              />
+
+              <div className="text-xs text-slate-500 bg-white p-3 rounded-lg border border-slate-200 leading-relaxed">
+                <strong>How to get your ID:</strong>
+                <ol className="list-decimal pl-4 mt-1 space-y-1">
+                  <li>Open Telegram and search for <strong className="text-blue-600">@userinfobot</strong>.</li>
+                  <li>Click <strong>Start</strong>. It will reply with your "Id".</li>
+                  <li>Copy that number and paste it here.</li>
+                  <li>Make sure you have also started a chat with <strong className="text-blue-600">@SouqelyBot</strong> so it can message you.</li>
+                </ol>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -116,6 +161,7 @@ export default function SettingsForm({ store }: { store: Store }) {
                     name="whish_number"
                     defaultValue={store?.whish_number || ""}
                     placeholder="+961 70 123456"
+                    className="bg-white"
                   />
                 </div>
               </div>
@@ -147,6 +193,7 @@ export default function SettingsForm({ store }: { store: Store }) {
                     name="omt_name"
                     defaultValue={store?.omt_name || ""}
                     placeholder="e.g. My Store OMT"
+                    className="bg-white"
                   />
                 </div>
               </div>

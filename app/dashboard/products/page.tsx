@@ -1,115 +1,126 @@
-export const dynamic = "force-dynamic";
-import { getStoreSettings, getStoreProducts, getUniqueCategories } from "@/lib/actions";
-import ProductFilter from "@/components/dashboard/ProductFilter";
+import { getStoreSettings } from "@/lib/actions";
+import { createClient } from "@/lib/supabase-server"; // Use Server Client
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle, Edit, Tag } from "lucide-react";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Plus, Package, Edit, AlertCircle } from "lucide-react"; // Added Icons
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import Image from "next/image";
+import { formatCurrency } from "@/lib/utils";
 
-export default async function ProductsPage({
-  searchParams,
-}: {
-  searchParams: { category?: string };
-}) {
-  // 1. Fetch the Store Data
+export const dynamic = "force-dynamic";
+
+export default async function ProductsPage() {
   const store = await getStoreSettings();
-  if (!store) {
-    redirect("/dashboard"); // Redirect if they don't have a store yet
-  }
+  if (!store) return <div>Store not found</div>;
 
-  // 2. Fetch Products & Categories in Parallel (Faster)
-  const [products, categories] = await Promise.all([
-    getStoreProducts(store.id, searchParams.category),
-    getUniqueCategories(store.id)
-  ]);
+  const supabase = createClient();
+  const { data: products } = await supabase
+    .from("products")
+    .select("*")
+    .eq("store_id", store.id)
+    .order("created_at", { ascending: false });
 
   return (
-    <div className="flex flex-col gap-6 p-6">
-
-      {/* HEADER SECTION */}
+    <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Products</h1>
-          <p className="text-muted-foreground">
-            Manage your store inventory and categories.
-          </p>
+          <p className="text-muted-foreground">Manage your inventory and prices.</p>
         </div>
         <Link href="/dashboard/products/new">
-          <Button size="sm" className="gap-2">
-            <PlusCircle className="h-4 w-4" />
-            <span className="whitespace-nowrap">Add Product</span>
+          <Button>
+            <Plus className="mr-2 h-4 w-4" /> Add Product
           </Button>
         </Link>
       </div>
 
-      {/* FILTER SECTION (The Wiring) */}
-      <div className="flex items-center gap-4 bg-white p-4 rounded-lg border shadow-sm">
-        <Tag className="h-4 w-4 text-gray-500" />
-        <span className="text-sm font-medium text-gray-700">Filter by Category:</span>
-        {/* Pass the dynamic categories to your component */}
-        <ProductFilter categories={categories} />
-      </div>
-
-      {/* PRODUCTS GRID */}
-      {products.length === 0 ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>No Products Found</CardTitle>
-            <CardDescription>
-              {searchParams.category
-                ? `No products found in the "${searchParams.category}" category.`
-                : "You haven't added any products yet."}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Link href="/dashboard/products/new">
-              <Button variant="outline">Create your first product</Button>
-            </Link>
-          </CardContent>
-        </Card>
+      {!products?.length ? (
+        <div className="text-center py-20 border-2 border-dashed rounded-xl">
+          <p className="text-muted-foreground mb-4">You haven't added any products yet.</p>
+          <Link href="/dashboard/products/new">
+            <Button variant="outline">Create your first product</Button>
+          </Link>
+        </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {products.map((product: any) => (
-            <Card key={product.id} className="overflow-hidden hover:shadow-md transition-shadow">
-              {/* Image Placeholder (or Real Image if you have it) */}
-              <div className="aspect-video bg-gray-100 flex items-center justify-center text-gray-400">
-                {product.main_image_url ? (
-                  <img src={product.main_image_url} alt={product.name} className="w-full h-full object-cover" />
-                ) : (
-                  <span className="text-xs">No Image</span>
-                )}
-              </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          {products.map((product) => {
+            // Logic for Stock Color
+            const stock = product.stock || 0;
+            const isOutOfStock = stock === 0;
+            const isLowStock = stock > 0 && stock < 10;
 
-              <CardHeader className="p-4 pb-2">
-                <div className="flex justify-between items-start">
-                  <CardTitle className="text-lg font-semibold truncate pr-2">
-                    {product.name}
-                  </CardTitle>
-                  <span className="font-mono text-sm font-bold text-green-600 bg-green-50 px-2 py-1 rounded">
-                    ${product.price_usd}
-                  </span>
+            return (
+              <Card key={product.id} className="overflow-hidden flex flex-col group hover:shadow-lg transition-all">
+
+                {/* IMAGE AREA */}
+                <div className="relative aspect-square bg-slate-100">
+                  {product.main_image_url ? (
+                    <Image
+                      src={product.main_image_url}
+                      alt={product.name}
+                      fill
+                      className="object-cover"
+                    />
+                  ) : (
+                    <div className="flex items-center justify-center h-full text-slate-300">
+                      <Package className="w-10 h-10" />
+                    </div>
+                  )}
+
+                  {/* STATUS BADGE (Top Left) */}
+                  <div className="absolute top-2 left-2">
+                    {product.active ? (
+                      <Badge className="bg-white/90 text-black hover:bg-white shadow-sm">Active</Badge>
+                    ) : (
+                      <Badge variant="secondary" className="bg-slate-200/90 text-slate-600">Draft</Badge>
+                    )}
+                  </div>
+
+                  {/* 📦 STOCK BADGE (Top Right) - NEW */}
+                  <div className="absolute top-2 right-2">
+                    <Badge className={`
+                        shadow-sm border-0
+                        ${isOutOfStock ? 'bg-red-500 hover:bg-red-600 text-white' : ''}
+                        ${isLowStock ? 'bg-orange-400 hover:bg-orange-500 text-white' : ''}
+                        ${!isLowStock && !isOutOfStock ? 'bg-green-500 hover:bg-green-600 text-white' : ''}
+                     `}>
+                      {isOutOfStock ? "Out of Stock" : `${stock} in stock`}
+                    </Badge>
+                  </div>
                 </div>
-                <CardDescription className="text-xs flex items-center gap-1">
-                  <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full text-[10px] font-medium uppercase tracking-wide">
-                    {product.category || "Uncategorized"}
-                  </span>
-                </CardDescription>
-              </CardHeader>
 
-              <CardContent className="p-4 pt-2">
-                <p className="text-sm text-gray-500 line-clamp-2 mb-4 h-10">
-                  {product.description || "No description provided."}
-                </p>
+                {/* CONTENT AREA */}
+                <CardHeader className="p-4 pb-2">
+                  <div className="flex justify-between items-start gap-2">
+                    <CardTitle className="text-base font-bold line-clamp-1" title={product.name}>
+                      {product.name}
+                    </CardTitle>
+                  </div>
+                  <p className="text-sm text-muted-foreground capitalize">{product.category}</p>
+                </CardHeader>
 
-                <Link href={`/dashboard/products/${product.id}/edit`}>
-                  <Button variant="outline" size="sm" className="w-full gap-2">
-                    <Edit className="h-3 w-3" /> Edit Product
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
-          ))}
+                <CardContent className="p-4 pt-0 flex-grow">
+                  <div className="flex items-baseline gap-2 mt-2">
+                    <span className="text-lg font-black">${product.price_usd}</span>
+                    <span className="text-xs text-muted-foreground">
+                      ({formatCurrency(product.price_usd * (store.lbp_rate || 89500), "LBP")})
+                    </span>
+                  </div>
+                </CardContent>
+
+                {/* FOOTER ACTIONS */}
+                <CardFooter className="p-4 pt-0 border-t bg-slate-50/50 mt-auto">
+                  <Link href={`/dashboard/products/${product.id}`} className="w-full mt-4">
+                    <Button variant="outline" className="w-full bg-white hover:bg-slate-100">
+                      <Edit className="w-4 h-4 mr-2 text-slate-500" />
+                      Edit Product
+                    </Button>
+                  </Link>
+                </CardFooter>
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>

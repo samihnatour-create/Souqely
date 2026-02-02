@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { sendTelegramNotification } from "@/lib/telegram";
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 
@@ -197,14 +198,21 @@ export async function updateStoreSettings(formData: FormData) {
         return { error: "Not authenticated" };
     }
 
+    // 1. Extract all fields
     const name = formData.get("name") as string;
     const phone = formData.get("phone") as string;
     const lbp_rate = parseFloat(formData.get("lbp_rate") as string);
+
+    // Payment Settings
     const is_whish_enabled = formData.get("is_whish_enabled") === "on";
     const whish_number = formData.get("whish_number") as string;
     const is_omt_enabled = formData.get("is_omt_enabled") === "on";
     const omt_name = formData.get("omt_name") as string;
 
+    // 🟢 NEW: Telegram Chat ID
+    const telegram_chat_id = formData.get("telegram_chat_id") as string;
+
+    // 2. Update Database
     const { error } = await supabase
         .from("stores")
         .update({
@@ -215,6 +223,7 @@ export async function updateStoreSettings(formData: FormData) {
             whish_number,
             is_omt_enabled,
             omt_name,
+            telegram_chat_id, // 🟢 Save the ID
         })
         .eq("owner_id", user.id);
 
@@ -226,7 +235,6 @@ export async function updateStoreSettings(formData: FormData) {
     revalidatePath("/dashboard/settings");
     return { success: "Store settings updated successfully" };
 }
-
 export async function getStoreSettings() {
     const supabase = createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -397,6 +405,8 @@ export async function updateProduct(prevState: any, formData: FormData) {
     const description = formData.get("description") as string;
     const price = parseFloat(formData.get("price") as string);
     const category = formData.get("category") as string;
+    const stock = parseInt(formData.get("stock") as string);
+    const image_url = formData.get("image_url") as string || null;
 
     if (!productId) return { error: "Product ID is missing" };
 
@@ -408,6 +418,8 @@ export async function updateProduct(prevState: any, formData: FormData) {
             description,
             price,
             category,
+            stock,
+            image_url,
             // Add image_url here if/when you handle file uploads
         })
         .eq("id", productId)
@@ -428,8 +440,9 @@ export async function getStoreProducts(storeId: string, categoryFilter?: string)
 
     let query = supabase
         .from("products")
-        .select("*")
+        .select("*, product_variants(*)")
         .eq("store_id", storeId)
+        .eq("active", true)
         .order("created_at", { ascending: false });
 
     // If a filter is provided, add it to the query
@@ -529,28 +542,23 @@ export async function getStoreOrders(storeId: string) {
 }
 // Add to lib/actions.ts
 
+// Add to lib/actions.ts
+
 export async function getOrderDetails(orderId: string) {
     const supabase = createClient();
 
-    // 1. Fetch the Order Info
-    const { data: order, error: orderError } = await supabase
-        .from("orders")
-        .select("*")
-        .eq("id", orderId)
+    // Fetch Order + Linked Items
+    const { data, error } = await supabase
+        .from('orders')
+        .select(`
+      *,
+      order_items (*)
+    `)
+        .eq('id', orderId)
         .single();
 
-    if (orderError || !order) return null;
-
-    // 2. Fetch the Items inside that order
-    const { data: items, error: itemsError } = await supabase
-        .from("order_items")
-        .select("*")
-        .eq("order_id", orderId);
-
-    return {
-        ...order,
-        items: items || []
-    };
+    if (error) return null;
+    return data;
 }
 // Fetch store details by SLUG (Public)
 export async function getPublicStoreBySlug(slug: string) {
@@ -570,13 +578,14 @@ export async function getPublicProducts(storeId: string) {
 
     const { data } = await supabase
         .from("products")
-        .select("*")
+        // 🟢 FIX: Add product_variants(*) here
+        .select("*, product_variants(*)")
         .eq("store_id", storeId)
-        .eq("active", true); // Only show active products
+        .eq("active", true);
 
     return data || [];
 }
-// Define the Trust Badge Shape
+// 0. Define Helper Types
 type TrustBadge = {
     icon: string;
     title: string;
@@ -597,17 +606,24 @@ type StoreDesignData = {
     card_style: string;
     hero_badge_text: string;
     trust_badges: TrustBadge[];
+    template?: string;
+    header_name?: string;
+    logo_url?: string;
+    updated_at?: string;
 };
 
-// 2. Define the Output Type (The Fix)
+// 2. Define the Output Type
 type ActionResponse = {
     success: boolean;
-    error?: string; // <--- This tells TS that 'error' is optional but valid
+    error?: string;
 };
 
 export async function updateStoreDesign(storeId: string, data: StoreDesignData): Promise<ActionResponse> {
     const supabase = createClient();
 
+    console.log("Updating Store:", storeId);
+
+    // 1. Perform the Update
     const { error } = await supabase
         .from("stores")
         .update({
@@ -622,15 +638,37 @@ export async function updateStoreDesign(storeId: string, data: StoreDesignData):
             hero_align: data.hero_align,
             card_style: data.card_style,
             hero_badge_text: data.hero_badge_text,
-            trust_badges: data.trust_badges
+            trust_badges: data.trust_badges,
+            template: data.template || "modern",
+            header_name: data.header_name,
+            updated_at: new Date().toISOString(),
+            logo_url: data.logo_url,
         })
         .eq("id", storeId);
 
     if (error) {
+        console.error("Supabase Error:", error);
         return { success: false, error: error.message };
     }
 
-    revalidatePath("/dashboard/design");
+    // 2. 🟢 CRITICAL FIX: Fetch the Slug for Revalidation
+    // We cannot assume the URL uses the ID. We must find the public slug.
+    const { data: store } = await supabase
+        .from("stores")
+        .select("slug")
+        .eq("id", storeId)
+        .single();
+
+    // 3. Revalidate Everything
+    revalidatePath("/dashboard/design"); // Update the editor
+
+    if (store && store.slug) {
+        // Clear the actual public storefront cache
+        revalidatePath(`/store/${store.slug}`);
+        // Clear the layout just in case headers/fonts are global
+        revalidatePath(`/store/${store.slug}`, 'layout');
+    }
+
     return { success: true };
 }
 export async function getProductById(productId: string) {
@@ -650,26 +688,142 @@ export async function getProductById(productId: string) {
     return data;
 }
 export async function createOrder(orderData: any) {
+    // 1. Log that we reached the server
+    console.log("SERVER: Starting createOrder for slug:", orderData.store_slug);
+
+    const supabase = createAdminClient();
+
+    try {
+        // 2. Fetch Store Details (Added name & telegram_chat_id)
+        const { data: store, error: storeError } = await supabase
+            .from("stores")
+            .select("id, lbp_rate, name, telegram_chat_id") // 🟢 UPDATED
+            .eq("slug", orderData.store_slug)
+            .single();
+
+        if (storeError || !store) {
+            console.error("SERVER ERROR: Store fetch failed:", storeError);
+            return { success: false, error: "Could not find store details." };
+        }
+
+        // 3. Insert Order
+        const { data: order, error: orderError } = await supabase
+            .from("orders")
+            .insert([
+                {
+                    store_id: store.id,
+                    customer_name: orderData.customer_name,
+                    customer_phone: orderData.customer_phone,
+                    customer_address: orderData.customer_address,
+                    payment_method: orderData.payment_method,
+                    total_usd: orderData.total,
+                    lbp_rate_at_order: store.lbp_rate || 89500,
+                    status: 'pending'
+                }
+            ])
+            .select('id')
+            .single();
+
+        if (orderError) {
+            console.error("SERVER ERROR: Order insert failed:", orderError);
+            return { success: false, error: "Order failed: " + orderError.message };
+        }
+
+        // 🟢 4. SEND TELEGRAM NOTIFICATION (Fire & Forget)
+        // We do this immediately after order creation. We do NOT 'await' it
+        // because we don't want to make the customer wait for the notification to send.
+        if (store.telegram_chat_id) {
+            const message = `
+🚨 <b>New Order Received!</b>
+
+🏪 <b>Store:</b> ${store.name}
+💰 <b>Amount:</b> $${orderData.total}
+👤 <b>Customer:</b> ${orderData.customer_name}
+📞 <b>Phone:</b> ${orderData.customer_phone}
+📍 <b>Address:</b> ${orderData.customer_address}
+
+<a href="https://souqely.com/dashboard/orders">👉 View Order</a>
+`;
+            sendTelegramNotification(store.telegram_chat_id, message).catch(err =>
+                console.error("Telegram Send Failed:", err)
+            );
+        }
+
+        // 5. Insert Items & Deduct Stock
+        if (orderData.items && orderData.items.length > 0) {
+
+            // A. Batch Insert into 'order_items'
+            const itemsToInsert = orderData.items.map((item: any) => ({
+                order_id: order.id,
+                product_id: item.id,
+                product_name: item.name,
+                quantity: item.quantity,
+                price_at_purchase: item.price
+            }));
+
+            const { error: itemsError } = await supabase.from("order_items").insert(itemsToInsert);
+
+            if (itemsError) {
+                console.error("SERVER ERROR: Items insert failed:", itemsError);
+            } else {
+                // B. Deduct Stock (Loop)
+                for (const item of orderData.items) {
+                    const { error: stockError } = await supabase.rpc('decrement_stock', {
+                        row_id: item.id,
+                        quantity_to_subtract: item.quantity,
+                        variant_id: item.variant_id || null
+                    });
+
+                    if (stockError) {
+                        console.error(`SERVER WARNING: Failed to update stock for product ${item.name}:`, stockError);
+                    }
+                }
+            }
+        }
+
+        return { success: true, data: [order] };
+
+    } catch (err: any) {
+        console.error("SERVER CRITICAL CRASH:", err);
+        return { success: false, error: "Server Exception: " + err.message };
+    }
+}
+
+export async function uploadOrderProof(formData: FormData) {
+    const supabase = createClient();
+    const file = formData.get("file") as File;
+    const orderId = formData.get("orderId") as string;
+
+    // 1. Upload to Supabase Storage (Bucket name: 'order-proofs')
+    const fileName = `${orderId}-${Date.now()}.png`;
+    const { data: uploadData, error: uploadError } = await supabase.storage
+        .from("order-proofs")
+        .upload(fileName, file);
+
+    if (uploadError) return { success: false, error: uploadError.message };
+
+    // 2. Get the public URL
+    const { data: urlData } = supabase.storage.from("order-proofs").getPublicUrl(fileName);
+
+    // 3. Update the order row with the URL and keep status 'pending'
+    const { error: updateError } = await supabase
+        .from("orders")
+        .update({ payment_proof_url: urlData.publicUrl })
+        .eq("id", orderId);
+
+    if (updateError) return { success: false, error: updateError.message };
+
+    return { success: true };
+}
+export async function acceptOrder(orderId: string) {
+    // Use admin client to bypass RLS if needed, otherwise standard client
     const supabase = createClient();
 
-    const { data, error } = await supabase
-        .from("orders")
-        .insert([
-            {
-                store_slug: orderData.store_slug,
-                customer_name: orderData.customer_name,
-                customer_phone: orderData.customer_phone,
-                customer_address: orderData.customer_address,
-                items: orderData.items,
-                total_amount: orderData.total,
-                status: 'pending'
-            }
-        ])
-        .select();
+    const { error } = await supabase
+        .from('orders')
+        .update({ status: 'shipped' }) // or 'processing'
+        .eq('id', orderId);
 
-    if (error) {
-        return { success: false, error: error.message };
-    }
-
-    return { success: true, data };
+    if (error) return { success: false, error: error.message };
+    return { success: true };
 }

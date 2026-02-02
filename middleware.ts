@@ -49,16 +49,20 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // 3. SUBDOMAIN REWRITER (New addition)
+  // 3. SUBDOMAIN REWRITER (Fix)
   const rootDomain = process.env.NODE_ENV === "production" ? "souqely.com" : "localhost:3000";
   const subdomain = hostname?.replace(`.${rootDomain}`, "");
 
-  // If a merchant subdomain exists and it's not the main site or www
   if (subdomain && subdomain !== rootDomain && subdomain !== "www") {
-    // This internally points [slug].souqely.com to /store/[slug]
-    return NextResponse.rewrite(
-      new URL(`/store/${subdomain}${path}`, request.url)
-    );
+    // 1. Clone the current URL so we keep all query params (?method=whish, etc.)
+    const url = request.nextUrl.clone();
+
+    // 2. Update the pathname to point to the internal folder
+    const currentPath = path === "/" ? "" : path;
+    url.pathname = `/store/${subdomain}${currentPath}`;
+
+    // 3. Rewrite using this new URL (which still has the search params attached)
+    return NextResponse.rewrite(url);
   }
 
   return response;

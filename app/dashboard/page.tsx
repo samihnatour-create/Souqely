@@ -122,8 +122,9 @@ export default async function DashboardPage() {
                         ${order.status === 'pending' ? 'bg-orange-100 text-orange-700' : ''}
                         ${order.status === 'cancelled' ? 'bg-red-100 text-red-700' : ''}
                         ${order.status === 'shipped' ? 'bg-blue-100 text-blue-700' : ''}
+                        ${order.status === 'awaiting_approval' ? 'bg-purple-100 text-purple-700' : ''}
                     `}>
-                      {order.status}
+                      {order.status?.replace('_', ' ')}
                     </div>
                   </div>
                 ))

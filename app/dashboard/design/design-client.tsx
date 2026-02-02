@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { Palette, Save, Layout, Monitor, Copy, ShieldCheck, Megaphone } from "lucide-react";
+import { useState, useRef } from "react";
+// 🟢 FIXED IMPORTS: Added 'Check' and 'Zap', removed unused 'List'
+import { Palette, Save, Layout, Monitor, Copy, ShieldCheck, Grid, Zap, Upload, X, Check, Image as ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,6 +10,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { updateStoreDesign } from "@/lib/actions";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
+import { createClient } from "@/lib/supabase-browser";
 
 const FONTS = {
     "Inter": "Inter, sans-serif",
@@ -25,6 +28,8 @@ const DEFAULT_BADGES = [
 
 export default function DesignPageClient({ store }: { store: any }) {
     const [design, setDesign] = useState({
+        template: store.template || "modern",
+        logo_url: store.logo_url || "",
         primary_color: store.primary_color || "#2563eb",
         background_color: store.background_color || "#ffffff",
         text_color: store.text_color || "#0f172a",
@@ -36,14 +41,14 @@ export default function DesignPageClient({ store }: { store: any }) {
         hero_subtitle: store.hero_subtitle || "Premium footwear curated for you.",
         hero_align: store.hero_align || "center",
         announcement_text: store.announcement_text || "Free Delivery in Lebanon",
-
-        // NEW FIELDS
         hero_badge_text: store.hero_badge_text || "New Collection 2026",
         trust_badges: store.trust_badges || DEFAULT_BADGES
     });
 
     const [isSaving, setIsSaving] = useState(false);
+    const [uploading, setUploading] = useState(false);
     const [previewUrl, setPreviewUrl] = useState(`http://${store.slug}.localhost:3000`);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const updateField = (field: string, value: string) => {
         setDesign(prev => ({ ...prev, [field]: value }));
@@ -55,22 +60,57 @@ export default function DesignPageClient({ store }: { store: any }) {
         setDesign(prev => ({ ...prev, trust_badges: newBadges }));
     };
 
+    const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!e.target.files || e.target.files.length === 0) return;
+
+        const file = e.target.files[0];
+        setUploading(true);
+
+        try {
+            const supabase = createClient();
+            const fileExt = file.name.split('.').pop();
+            const fileName = `logo-${Date.now()}.${fileExt}`;
+            const filePath = `${store.id}/${fileName}`;
+
+            // 1. Upload
+            const { error: uploadError } = await supabase.storage
+                .from('store-logos')
+                .upload(filePath, file);
+
+            if (uploadError) throw uploadError;
+
+            // 2. Get URL
+            const { data: { publicUrl } } = supabase.storage
+                .from('store-logos')
+                .getPublicUrl(filePath);
+
+            updateField('logo_url', publicUrl);
+            toast.success("Logo uploaded!");
+        } catch (error: any) {
+            console.error(error);
+            toast.error("Upload failed. Make sure 'store-logos' bucket exists and is public.");
+        } finally {
+            setUploading(false);
+        }
+    };
+
     async function handleSave() {
         setIsSaving(true);
-        // The type definition in actions.ts now supports trust_badges
-        const result = await updateStoreDesign(store.id, design);
-        setIsSaving(false);
-
-        if (result.success) {
-            toast.success("Design saved!");
-            const params = new URLSearchParams({
-                ...design,
-                trust_badges: JSON.stringify(design.trust_badges),
-                t: Date.now().toString()
-            });
-            setPreviewUrl(`http://${store.slug}.localhost:3000?${params.toString()}`);
-        } else {
-            toast.error("Error: " + result.error);
+        try {
+            const result = await updateStoreDesign(store.id, design);
+            if (result.success) {
+                toast.success("Design saved!");
+                // Refresh iframe
+                const iframe = document.querySelector('iframe');
+                if (iframe) iframe.src = iframe.src;
+            } else {
+                toast.error("Error: " + result.error);
+            }
+        } catch (err) {
+            console.error("Client Error:", err);
+            toast.error("Failed to connect to server");
+        } finally {
+            setIsSaving(false);
         }
     }
 
@@ -92,6 +132,62 @@ export default function DesignPageClient({ store }: { store: any }) {
                         <p className="text-xs text-slate-500">Customize every pixel of your brand.</p>
                     </div>
 
+                    {/* 0. TEMPLATE SELECTOR */}
+                    <section className="space-y-6">
+                        <div className="flex items-center gap-2 text-blue-600 font-bold text-[10px] uppercase tracking-widest">
+                            <Layout className="w-3 h-3" /> Layout & Theme
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            {[
+                                { id: 'modern-grid', name: 'Modern Grid', icon: Grid, desc: 'Fashion & Shoes' },
+                                { id: 'tech-cyber', name: 'Tech Cyber', icon: Zap, desc: 'Electronics' }
+                            ].map((tpl) => (
+                                <button
+                                    key={tpl.id}
+                                    onClick={() => updateField('template', tpl.id)}
+                                    className={cn(
+                                        "relative flex flex-col text-left p-3 rounded-xl border-2 transition-all hover:bg-slate-50",
+                                        design.template === tpl.id
+                                            ? "border-blue-600 bg-blue-50/50 ring-2 ring-blue-600/10"
+                                            : "border-slate-100 bg-white"
+                                    )}
+                                >
+                                    {/* Active Checkmark */}
+                                    {design.template === tpl.id && (
+                                        <div className="absolute -top-2 -right-2 w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center shadow-lg border-2 border-white">
+                                            <Check className="w-3 h-3 text-white" />
+                                        </div>
+                                    )}
+
+                                    <div className={cn(
+                                        "aspect-video rounded-lg flex items-center justify-center mb-2",
+                                        design.template === tpl.id ? "bg-blue-100" : "bg-slate-100"
+                                    )}>
+                                        <tpl.icon className={cn("w-6 h-6", design.template === tpl.id ? "text-blue-600" : "text-slate-400")} />
+                                    </div>
+
+                                    <span className="text-[11px] font-black uppercase tracking-tight text-slate-900">{tpl.name}</span>
+                                    <span className="text-[9px] text-slate-400 font-medium">{tpl.desc}</span>
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* 🟢 NEW: Conditional Template Settings */}
+                        {design.template === 'tech-cyber' && (
+                            <div className="p-3 bg-slate-900 rounded-lg border border-slate-800 mt-2 animate-in fade-in slide-in-from-top-2">
+                                <div className="flex items-center gap-2 text-blue-400 font-bold text-[10px] uppercase tracking-widest mb-1">
+                                    <Zap className="w-3 h-3" /> Cyber Config
+                                </div>
+                                <p className="text-[10px] text-slate-400">
+                                    Theme set to Dark Mode. Neon accents active.
+                                </p>
+                            </div>
+                        )}
+                    </section>
+
+                    <hr className="border-slate-100" />
+
                     {/* 1. BRANDING & HEADER */}
                     <section className="space-y-6">
                         <div className="flex items-center gap-2 text-blue-600 font-bold text-[10px] uppercase tracking-widest">
@@ -99,6 +195,51 @@ export default function DesignPageClient({ store }: { store: any }) {
                         </div>
 
                         <div className="space-y-4">
+                            {/* LOGO UPLOADER */}
+                            <div className="space-y-3">
+                                <Label>Store Logo</Label>
+                                <input
+                                    type="file"
+                                    ref={fileInputRef}
+                                    onChange={handleLogoUpload}
+                                    accept="image/*"
+                                    className="hidden"
+                                />
+
+                                <div className="flex items-start gap-4">
+                                    <div className="w-20 h-20 bg-slate-100 rounded-xl border border-slate-200 flex items-center justify-center overflow-hidden relative shrink-0">
+                                        {design.logo_url ? (
+                                            <img src={design.logo_url} alt="Logo" className="w-full h-full object-cover" />
+                                        ) : (
+                                            <ImageIcon className="w-8 h-8 text-slate-300" />
+                                        )}
+                                        {design.logo_url && (
+                                            <button
+                                                onClick={() => updateField('logo_url', "")}
+                                                className="absolute top-1 right-1 bg-white rounded-full p-0.5 shadow-sm hover:bg-red-50 hover:text-red-500"
+                                            >
+                                                <X className="w-3 h-3" />
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    <div className="flex-1 space-y-2">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            disabled={uploading}
+                                            onClick={() => fileInputRef.current?.click()}
+                                            className="w-full h-9 font-medium"
+                                        >
+                                            {uploading ? "Uploading..." : <><Upload className="w-4 h-4 mr-2" /> Upload Image</>}
+                                        </Button>
+                                        <p className="text-[10px] text-slate-400 leading-tight">
+                                            Recommended: Square JPG/PNG. <br /> Leave empty to hide.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
                             <div>
                                 <Label>Header Brand Name</Label>
                                 <Input
@@ -107,6 +248,7 @@ export default function DesignPageClient({ store }: { store: any }) {
                                     className="mt-2 font-bold"
                                 />
                             </div>
+
                             <div>
                                 <Label>Font Family</Label>
                                 <Select
@@ -125,6 +267,7 @@ export default function DesignPageClient({ store }: { store: any }) {
                             </div>
                         </div>
 
+                        {/* Colors */}
                         <div className="space-y-3">
                             <Label>Color Palette</Label>
                             <div className="grid grid-cols-3 gap-2">
@@ -166,7 +309,6 @@ export default function DesignPageClient({ store }: { store: any }) {
                                 ))}
                             </div>
                         </div>
-
                         <div className="space-y-4">
                             <div>
                                 <Label>Badge Text</Label>
@@ -208,7 +350,7 @@ export default function DesignPageClient({ store }: { store: any }) {
 
                     <hr className="border-slate-100" />
 
-                    {/* 3. TRUST SIGNALS (NEW) */}
+                    {/* 3. TRUST SIGNALS */}
                     <section className="space-y-6">
                         <div className="flex items-center gap-2 text-blue-600 font-bold text-[10px] uppercase tracking-widest">
                             <ShieldCheck className="w-3 h-3" /> Trust Signals
@@ -270,8 +412,6 @@ export default function DesignPageClient({ store }: { store: any }) {
 
             {/* --- LIVE PREVIEW --- */}
             <div className="flex-1 bg-slate-200/50 flex flex-col items-center justify-center p-8 relative">
-
-                {/* Live Badge */}
                 <div className="absolute top-6 right-6 flex items-center gap-2 px-3 py-1.5 bg-white rounded-full shadow-sm border border-slate-200 z-10">
                     <span className="relative flex h-2 w-2">
                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
@@ -282,7 +422,6 @@ export default function DesignPageClient({ store }: { store: any }) {
                     </span>
                 </div>
 
-                {/* Device Badge */}
                 <div className="absolute top-6 left-6 flex items-center gap-2 px-4 py-2 bg-white rounded-full shadow-sm text-xs font-medium text-slate-500">
                     <Monitor className="w-3 h-3" /> Desktop View
                 </div>

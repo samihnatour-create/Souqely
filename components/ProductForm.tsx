@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { createClient } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase-browser"; // <--- Correct Browser Client
 import { Store } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,15 +13,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CheckCircle, Plus, X, Loader2 } from "lucide-react";
-import { formatCurrency } from "@/lib/utils";
+import { CheckCircle, Plus, X, Loader2, Package } from "lucide-react";
+import { toast } from "sonner";
+import VariantManager, { VariantRow } from "./variant-manager"; // <--- Ensure this file exists
 
-// Schema: Category is just a required string now
 const productSchema = z.object({
   name: z.string().min(1, "Name is required"),
   description: z.string().optional(),
   category: z.string().min(1, "Category is required"),
   price_usd: z.coerce.number().min(0.01, "Price must be greater than 0"),
+  stock: z.coerce.number().int().min(0, "Stock cannot be negative").default(0),
   status: z.enum(["active", "draft"]).default("active"),
 });
 
@@ -29,34 +30,46 @@ type ProductFormData = z.infer<typeof productSchema>;
 
 interface ProductFormProps {
   store: Store;
+  initialData?: any;
+  initialVariants?: VariantRow[]; // <--- Props for Edit Mode
 }
 
-export default function ProductForm({ store }: ProductFormProps) {
+export default function ProductForm({ store, initialData, initialVariants = [] }: ProductFormProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [images, setImages] = useState<File[]>([]);
-  const [previews, setPreviews] = useState<string[]>([]);
-  const [success, setSuccess] = useState(false);
+  const [previews, setPreviews] = useState<string[]>(
+    initialData?.main_image_url ? [initialData.main_image_url] : []
+  );
 
+  // State for Variants (Initialized from DB data if editing)
+  const [variants, setVariants] = useState<VariantRow[]>(initialVariants);
+
+  const [success, setSuccess] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isEditMode = !!initialData;
 
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<ProductFormData>({
     resolver: zodResolver(productSchema),
     defaultValues: {
-      status: "active",
-      price_usd: 0,
+      name: initialData?.name || "",
+      description: initialData?.description || "",
+      category: initialData?.category || "",
+      price_usd: initialData?.price_usd || 0,
+      stock: initialData?.stock || 0,
+      status: initialData?.active ? "active" : "draft",
     },
   });
 
   const price_usd = watch("price_usd");
-  const lbpPrice = price_usd ? price_usd * (store.lbp_rate || 89500) : 0;
 
+  // --- IMAGE HANDLERS ---
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const newFiles = Array.from(e.target.files);
-      if (images.length + newFiles.length > 5) {
-        alert("You can only upload up to 5 images.");
+      if (previews.length + newFiles.length > 5) {
+        toast.error("Max 5 images allowed.");
         return;
       }
       setImages([...images, ...newFiles]);
@@ -65,22 +78,26 @@ export default function ProductForm({ store }: ProductFormProps) {
   };
 
   const removeImage = (index: number) => {
-    const newImages = [...images];
-    newImages.splice(index, 1);
-    setImages(newImages);
-
+    const isNewFile = index >= (previews.length - images.length);
+    if (isNewFile) {
+      const fileIndex = index - (previews.length - images.length);
+      const newImages = [...images];
+      newImages.splice(fileIndex, 1);
+      setImages(newImages);
+    }
     const newPreviews = [...previews];
     URL.revokeObjectURL(newPreviews[index]);
     newPreviews.splice(index, 1);
     setPreviews(newPreviews);
   };
 
+  // --- SUBMIT HANDLER ---
   const onSubmit = async (data: ProductFormData) => {
     setIsLoading(true);
     const supabase = createClient();
 
     try {
-      let main_image_url = null;
+      let main_image_url = initialData?.main_image_url || null;
       const uploadedImageUrls: string[] = [];
 
       // 1. Upload Images
@@ -89,79 +106,116 @@ export default function ProductForm({ store }: ProductFormProps) {
         for (const image of images) {
           const fileName = `${Math.random().toString(36).substring(2)}`;
           const filePath = `${store.owner_id}/${fileName}`;
-
-          const { error: uploadError } = await supabase.storage
-            .from("product-images")
-            .upload(filePath, image);
+          const { error: uploadError } = await supabase.storage.from("product-images").upload(filePath, image);
 
           if (!uploadError) {
-            const { data: { publicUrl } } = supabase.storage
-              .from("product-images")
-              .getPublicUrl(filePath);
+            const { data: { publicUrl } } = supabase.storage.from("product-images").getPublicUrl(filePath);
             uploadedImageUrls.push(publicUrl);
           }
         }
         setUploading(false);
       }
 
-      if (uploadedImageUrls.length > 0) main_image_url = uploadedImageUrls[0];
+      // Determine Main Image URL
+      if (uploadedImageUrls.length > 0) {
+        if (!main_image_url || previews.length === images.length) {
+          main_image_url = uploadedImageUrls[0];
+        }
+      }
+      if (previews.length === 0) main_image_url = null;
 
-      // 2. Insert Product
-      const { data: product, error: productError } = await supabase
-        .from("products")
-        .insert({
-          store_id: store.id,
-          name: data.name,
-          description: data.description,
-          category: data.category, // Saves the text input directly
-          price_usd: data.price_usd,
-          active: data.status === "active",
-          main_image_url: main_image_url,
-          currency: "USD",
-        })
-        .select()
-        .single();
+      let productId = initialData?.id;
 
-      if (productError) throw productError;
+      // 2. Insert or Update Parent Product
+      if (isEditMode) {
+        const { error } = await supabase
+          .from("products")
+          .update({
+            name: data.name,
+            description: data.description,
+            category: data.category,
+            price_usd: data.price_usd,
+            stock: data.stock,
+            active: data.status === "active",
+            main_image_url: main_image_url,
+          })
+          .eq("id", productId);
 
-      // 3. Save Image records
-      if (uploadedImageUrls.length > 0 && product) {
-        const imageRecords = uploadedImageUrls.map((url, index) => ({
-          product_id: product.id,
-          image_url: url,
-          display_order: index
-        }));
-        await supabase.from("product_images").insert(imageRecords);
+        if (error) throw error;
+      } else {
+        const { data: product, error } = await supabase
+          .from("products")
+          .insert({
+            store_id: store.id,
+            name: data.name,
+            description: data.description,
+            category: data.category,
+            price_usd: data.price_usd,
+            stock: data.stock,
+            active: data.status === "active",
+            main_image_url: main_image_url,
+            currency: "USD",
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+        productId = product.id; // Capture ID for new product
       }
 
-      setSuccess(true);
-    } catch (error) {
-      console.error("Error creating product:", error);
-      alert("Failed to create product. Please try again.");
+      // 3. HANDLE VARIANTS (Wipe & Replace Strategy)
+      if (productId) {
+        // A. Delete ALL old variants for this product to prevent duplicates
+        const { error: deleteError } = await supabase
+          .from("product_variants")
+          .delete()
+          .eq("product_id", productId);
+
+        if (deleteError) throw deleteError;
+
+        // B. Insert current list of variants
+        if (variants.length > 0) {
+          const variantsPayload = variants.map(v => ({
+            product_id: productId,
+            name: v.name,
+            attributes: v.attributes,
+            price_usd: v.price_usd,
+            stock: v.stock
+          }));
+
+          const { error: varError } = await supabase
+            .from("product_variants")
+            .insert(variantsPayload);
+
+          if (varError) throw varError;
+        }
+      }
+
+      if (isEditMode) {
+        toast.success("Product updated!");
+        router.refresh();
+        router.push("/dashboard/products");
+      } else {
+        setSuccess(true);
+      }
+
+    } catch (error: any) {
+      console.error("Error saving:", error);
+      toast.error(error.message || "Failed to save.");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleReset = () => {
-    window.location.reload();
-  };
+  const handleReset = () => window.location.reload();
 
-  if (success) {
+  if (success && !isEditMode) {
     return (
       <Card>
         <CardContent className="pt-6 flex flex-col items-center text-center space-y-4">
-          <div className="rounded-full bg-green-100 p-3 text-green-600">
-            <CheckCircle className="h-8 w-8" />
-          </div>
-          <div>
-            <h2 className="text-2xl font-bold">Product Created!</h2>
-            <p className="text-muted-foreground">The product has been added to the <strong>{watch("category")}</strong> category.</p>
-          </div>
-          <div className="flex gap-4 pt-4">
-            <Button variant="outline" onClick={handleReset}>Add Another Product</Button>
-            <Button onClick={() => window.location.href = "/dashboard/products"}>View All Products</Button>
-          </div>
+          <CheckCircle className="h-12 w-12 text-green-600" />
+          <h2 className="text-2xl font-bold">Product Created!</h2>
+          <Button onClick={() => router.push("/dashboard/products")}>View All Products</Button>
         </CardContent>
       </Card>
     );
@@ -171,92 +225,79 @@ export default function ProductForm({ store }: ProductFormProps) {
     <div className="max-w-2xl mx-auto">
       <Card>
         <CardHeader>
-          <CardTitle>Add New Product</CardTitle>
+          <CardTitle>{isEditMode ? "Edit Product" : "Add New Product"}</CardTitle>
           <CardDescription>
-            Create a new product for your store.
+            {isEditMode ? "Update details & variants." : "Create a new product."}
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit(onSubmit)}>
           <CardContent className="space-y-6">
 
-            {/* Images Section */}
+            {/* IMAGES */}
             <div className="space-y-2">
-              <Label>Product Images (Max 5)</Label>
-              <div className="grid grid-cols-3 gap-4 sm:grid-cols-5">
+              <Label>Product Images</Label>
+              <div className="grid grid-cols-5 gap-2">
                 {previews.map((preview, index) => (
-                  <div key={index} className="relative aspect-square rounded-lg overflow-hidden border bg-gray-50 group">
+                  <div key={index} className="relative aspect-square rounded border bg-gray-50 group">
                     <img src={preview} alt="Preview" className="w-full h-full object-cover" />
-                    <button
-                      type="button"
-                      onClick={() => removeImage(index)}
-                      className="absolute top-1 right-1 bg-black/50 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
+                    <button type="button" onClick={() => removeImage(index)} className="absolute top-1 right-1 bg-black/50 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100">
                       <X className="h-3 w-3" />
                     </button>
-                    {index === 0 && <div className="absolute bottom-0 inset-x-0 bg-black/60 text-white text-[10px] text-center py-0.5">Main</div>}
                   </div>
                 ))}
                 {previews.length < 5 && (
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="flex flex-col items-center justify-center aspect-square rounded-lg border-2 border-dashed border-gray-300 hover:border-gray-400 hover:bg-gray-50 transition-colors"
-                  >
-                    <Plus className="h-6 w-6 text-gray-400" />
-                    <span className="text-xs text-gray-500 mt-1">Add Image</span>
+                  <button type="button" onClick={() => fileInputRef.current?.click()} className="flex items-center justify-center border-2 border-dashed rounded aspect-square hover:bg-slate-50">
+                    <Plus className="h-5 w-5 text-gray-400" />
                   </button>
                 )}
               </div>
               <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={handleFileChange} />
             </div>
 
+            {/* BASIC INFO */}
             <div className="space-y-2">
-              <Label htmlFor="name">Name</Label>
-              <Input id="name" {...register("name")} placeholder="e.g. Vintage T-Shirt" />
+              <Label>Name</Label>
+              <Input {...register("name")} />
               {errors.name && <p className="text-sm text-red-500">{errors.name.message}</p>}
             </div>
 
-            {/* CATEGORY INPUT (Free Text) */}
             <div className="space-y-2">
-              <Label htmlFor="category">Category</Label>
-              <Input
-                id="category"
-                {...register("category")}
-                placeholder="e.g. Summer Collection, Shoes, Sale..."
-              />
-              <p className="text-[11px] text-muted-foreground">
-                Create a new category or type an existing one to group products.
-              </p>
-              {errors.category && <p className="text-sm text-red-500">{errors.category.message}</p>}
+              <Label>Category</Label>
+              <Input {...register("category")} placeholder="e.g. Shirts" />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea id="description" {...register("description")} placeholder="Describe your product..." />
+              <Label>Description</Label>
+              <Textarea {...register("description")} />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            {/* PRICING & STOCK */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-b pb-6">
               <div className="space-y-2">
-                <Label htmlFor="price_usd">Price (USD)</Label>
+                <Label>Base Price (USD)</Label>
+                <Input type="number" step="0.01" {...register("price_usd")} />
+              </div>
+              <div className="space-y-2">
+                <Label>Base/Default Stock</Label>
                 <div className="relative">
-                  <span className="absolute left-3 top-2.5 text-gray-500">$</span>
-                  <Input id="price_usd" type="number" step="0.01" className="pl-7" {...register("price_usd")} placeholder="0.00" />
+                  <Package className="absolute left-3 top-2.5 h-4 w-4 text-gray-500" />
+                  <Input type="number" className="pl-9" {...register("stock")} />
                 </div>
-                {errors.price_usd && <p className="text-sm text-red-500">{errors.price_usd.message}</p>}
-              </div>
-
-              <div className="space-y-2">
-                <Label>LBP Estimate</Label>
-                <div className="h-10 px-3 py-2 rounded-md border bg-gray-50 text-gray-700 flex items-center">
-                  {formatCurrency(lbpPrice, "LBP")}
-                </div>
+                <p className="text-[10px] text-muted-foreground">Used if no variants are set.</p>
               </div>
             </div>
 
+            {/* VARIANT MANAGER */}
+            <VariantManager
+              basePrice={price_usd || 0}
+              initialVariants={variants}
+              onVariantsChange={setVariants}
+            />
+
             <div className="space-y-2">
-              <Label htmlFor="status">Status</Label>
-              <Select onValueChange={(val: "active" | "draft") => setValue("status", val)} defaultValue="active">
-                <SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger>
+              <Label>Status</Label>
+              <Select onValueChange={(val: "active" | "draft") => setValue("status", val)} defaultValue={watch("status")}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="active">Active</SelectItem>
                   <SelectItem value="draft">Draft</SelectItem>
@@ -265,14 +306,10 @@ export default function ProductForm({ store }: ProductFormProps) {
             </div>
 
           </CardContent>
-          <CardFooter>
+          <CardFooter className="flex gap-3">
+            <Button type="button" variant="outline" className="w-full" onClick={() => router.back()}>Cancel</Button>
             <Button type="submit" className="w-full" disabled={isLoading || uploading}>
-              {isLoading || uploading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {uploading ? "Uploading Images..." : "Saving..."}
-                </>
-              ) : "Create Product"}
+              {isLoading || uploading ? <Loader2 className="animate-spin" /> : (isEditMode ? "Update" : "Create")}
             </Button>
           </CardFooter>
         </form>
