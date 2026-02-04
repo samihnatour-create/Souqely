@@ -3,9 +3,9 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Rocket, CreditCard, ChevronRight, PlayCircle, Loader2 } from "lucide-react";
-import { joinWaitlist } from "@/lib/waitlist-actions";
+import { Loader2, CheckCircle2, Smartphone, ChevronRight } from "lucide-react";
+import { joinWaitlist } from "@/lib/waitlist-actions"; // Keep your existing server action
+import { Reveal } from "./reveal"; // Import the animation wrapper we made
 
 export default function Hero() {
     const [email, setEmail] = useState("");
@@ -21,7 +21,6 @@ export default function Hero() {
 
         try {
             const result = await joinWaitlist(formData);
-
             if (result.error) {
                 setMessage({ type: "error", text: result.error });
             } else {
@@ -36,101 +35,105 @@ export default function Hero() {
     }
 
     return (
-        <section className="relative w-full min-h-screen bg-white overflow-hidden flex flex-col items-center justify-center pt-20">
-            {/* 1. Background Decor */}
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full max-w-[1400px] pointer-events-none">
-                <div className="absolute top-[10%] right-[5%] w-72 h-72 bg-blue-50 rounded-full blur-[120px] opacity-60" />
-                <div className="absolute bottom-[20%] left-[5%] w-96 h-96 bg-slate-100 rounded-full blur-[120px] opacity-40" />
+        <section className="relative pt-32 pb-20 md:pt-48 md:pb-32 px-6 overflow-hidden flex flex-col items-center justify-center text-center bg-white">
+
+            {/* 1. Background Gradients (From HTML) */}
+            <div className="absolute inset-0 pointer-events-none">
+                <div className="absolute top-[20%] left-[20%] w-[800px] h-[500px] bg-[#1a56db]/5 rounded-full blur-[100px]" />
+                <div className="absolute bottom-[20%] right-[20%] w-[600px] h-[400px] bg-[#3b7cff]/5 rounded-full blur-[100px]" />
             </div>
 
-            <div className="container relative z-10 mx-auto px-4 md:px-6 flex flex-col items-center text-center">
+            <div className="relative z-10 max-w-4xl mx-auto flex flex-col items-center">
 
-                {/* 2. Badge */}
-                <Badge className="mb-6 py-1.5 px-4 bg-blue-50 text-blue-700 border-blue-100 hover:bg-blue-50 rounded-full font-bold flex gap-2 items-center animate-in fade-in slide-in-from-bottom-3 duration-700">
-                    <Rocket className="w-3.5 h-3.5" />
-                    Join 50+ merchants on the waitlist
-                </Badge>
+                {/* 2. Badge (From HTML) */}
+                <Reveal>
+                    <div className="inline-flex items-center gap-2 bg-[#e8effe] border border-[#1a56db]/15 rounded-full px-4 py-1.5 mb-8">
+                        <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#1a56db] opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-[#1a56db]"></span>
+                        </span>
+                        <span className="text-xs font-bold uppercase tracking-widest text-[#1a56db]">Early access — limited spots</span>
+                    </div>
+                </Reveal>
 
-                {/* 3. Headline */}
-                <h1 className="max-w-4xl text-5xl md:text-7xl lg:text-8xl font-black tracking-tighter text-slate-900 leading-[0.9] mb-8 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-100 uppercase italic">
-                    Turn your ideas <br />
-                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-indigo-500 to-slate-400">
-                        into an online store
-                    </span>
-                </h1>
+                {/* 3. Headline (From HTML - Serif Font) */}
+                <Reveal delay={100}>
+                    <h1 className="font-serif text-5xl md:text-7xl font-semibold tracking-tight leading-[1.1] text-[#0f1117] mb-6">
+                        Sell online.<br />
+                        <span className="text-[#1a56db]">The way Lebanon works.</span>
+                    </h1>
+                </Reveal>
 
-                {/* 4. Value Prop */}
-                <p className="max-w-2xl text-lg md:text-xl text-slate-500 mb-10 leading-relaxed animate-in fade-in slide-in-from-bottom-5 duration-700 delay-200">
-                    Tired of "Not available in your country"? Souqely is built for the Lebanese struggle.
-                    Professional e-commerce with native OMT, Whish, and LBP support.
-                </p>
+                {/* 4. Subheadline (From HTML) */}
+                <Reveal delay={200}>
+                    <p className="text-lg md:text-xl text-[#4a4e5a] max-w-xl mx-auto leading-relaxed mb-10">
+                        OMT. Whish. WhatsApp. LBP. Everything local merchants actually use. Finally in one place.
+                    </p>
+                </Reveal>
 
-                {/* 5. Functional Form */}
-                <div className="w-full max-w-lg flex flex-col gap-3 animate-in fade-in slide-in-from-bottom-6 duration-700 delay-300">
-                    <form action={handleHeroSubmit} className="flex flex-col sm:flex-row gap-2 p-1.5 bg-white border border-slate-200 shadow-2xl shadow-blue-900/10 rounded-2xl sm:rounded-full">
+                {/* 5. Functional Form (Styled to match HTML buttons) */}
+                <Reveal delay={300} className="w-full max-w-lg">
+                    <form action={handleHeroSubmit} className="flex flex-col sm:flex-row gap-2 p-2 bg-white border border-[#e2e4e9] shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-2xl">
                         <Input
                             name="email"
                             type="email"
                             placeholder="Enter your email address"
                             required
-                            className="border-none bg-transparent h-12 px-6 focus-visible:ring-0 text-base flex-1"
+                            className="border-none bg-transparent h-12 px-4 focus-visible:ring-0 text-base flex-1 text-[#0f1117] placeholder:text-slate-400"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                         />
                         <Button
                             type="submit"
                             disabled={isPending}
-                            className="h-12 px-8 rounded-xl sm:rounded-full bg-blue-600 hover:bg-blue-700 font-bold text-base transition-all active:scale-95 min-w-[140px]"
+                            className="h-12 px-8 bg-[#1a56db] hover:bg-[#1240a8] text-white font-bold text-base rounded-xl transition-all shadow-md hover:shadow-lg min-w-[160px]"
                         >
-                            {isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : "Join Waitlist"}
+                            {isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : (
+                                <span className="flex items-center gap-2">
+                                    Join Waitlist <ChevronRight className="w-4 h-4" />
+                                </span>
+                            )}
                         </Button>
                     </form>
 
                     {/* Feedback Message */}
                     {message.text && (
-                        <p className={`text-sm font-bold animate-in fade-in slide-in-from-top-2 ${message.type === "success" ? "text-green-600" : "text-red-500"}`}>
+                        <p className={`mt-4 text-sm font-bold animate-in fade-in slide-in-from-top-2 ${message.type === "success" ? "text-green-600" : "text-red-500"}`}>
                             {message.type === "success" ? "✅ " : "❌ "}{message.text}
                         </p>
                     )}
+                </Reveal>
 
-                    <button className="group flex items-center justify-center gap-2 text-slate-400 hover:text-blue-600 transition-colors py-2 font-medium text-sm">
-                        <PlayCircle className="w-4 h-4" />
-                        Request a personalized demo
-                        <ChevronRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
-                    </button>
-                </div>
-
-                {/* 6. High-impact Mockup */}
-                <div className="mt-16 w-full max-w-5xl relative group animate-in fade-in slide-in-from-bottom-10 duration-1000 delay-500">
-                    <div className="absolute inset-0 bg-gradient-to-t from-white via-transparent to-transparent z-20 pointer-events-none h-full" />
-
-                    <div className="relative z-10 rounded-2xl md:rounded-3xl border border-slate-200 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.1)] overflow-hidden bg-slate-50 aspect-video">
-                        <div className="w-full h-full flex items-center justify-center bg-white">
-                            <div className="text-center">
-                                <p className="font-black text-slate-100 text-[6rem] md:text-[10rem] select-none tracking-tighter italic">SOUQELY</p>
-                                <p className="text-slate-400 font-medium -mt-8 md:-mt-16 tracking-widest uppercase text-xs md:text-sm">Your Storefront Preview</p>
-                            </div>
-                        </div>
-
-                        {/* Floating UI Element */}
-                        <div className="absolute top-6 left-6 md:top-10 md:left-10 bg-white p-3 md:p-4 rounded-xl shadow-xl border border-slate-100 flex items-center gap-3 animate-bounce-slow">
-                            <div className="w-8 h-8 md:w-10 md:h-10 bg-green-100 rounded-full flex items-center justify-center text-green-600">
-                                <CreditCard className="w-4 h-4 md:w-5 md:h-5" />
-                            </div>
-                            <div className="text-left">
-                                <p className="text-[8px] md:text-[10px] text-slate-400 font-bold uppercase tracking-tighter">New Order</p>
-                                <p className="text-xs md:text-sm font-black text-slate-900">$150.00 via Whish</p>
-                            </div>
-                        </div>
+                {/* 6. Social Proof (From HTML) */}
+                <Reveal delay={400}>
+                    <div className="mt-12 flex flex-wrap justify-center gap-6 md:gap-8 text-sm font-medium text-[#8a8f9e]">
+                        <div className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-[#1a56db]" /> Free to start</div>
+                        <div className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-[#1a56db]" /> No credit card</div>
+                        <div className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-[#1a56db]" /> 3 min setup</div>
                     </div>
-                </div>
+                </Reveal>
 
-                {/* 7. Trust Logos */}
-                <div className="mt-20 flex flex-wrap justify-center items-center gap-8 md:gap-16 opacity-40 grayscale hover:grayscale-0 hover:opacity-100 transition-all duration-500">
-                    <span className="font-black text-xl tracking-tighter text-slate-900 italic">OMT INTEGRATED</span>
-                    <span className="font-black text-xl tracking-tighter text-slate-900 italic">WHISH READY</span>
-                    <span className="font-black text-xl tracking-tighter text-slate-900 italic">LBP/USD SYNC</span>
-                </div>
+            </div>
+
+            {/* 7. Dashboard Preview (From HTML - Glossy Look) */}
+            <div className="w-full mt-20 px-0 md:px-0">
+                <Reveal delay={500}>
+                    <div className="relative max-w-6xl mx-auto rounded-[1.5rem] md:rounded-[2.5rem] border-[6px] md:border-[10px] border-[#0f1117] bg-[#0f1117] shadow-2xl shadow-blue-900/20 overflow-hidden aspect-[16/10] md:aspect-[21/9] group">
+
+                        <div className="absolute inset-0 bg-slate-900 flex items-center justify-center">
+                            {/* Placeholder for Dashboard Screenshot */}
+                            <div className="text-center">
+                                <div className="w-20 h-20 md:w-24 md:h-24 bg-[#1a56db]/20 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
+                                    <Smartphone className="w-8 h-8 md:w-10 md:h-10 text-[#1a56db]" />
+                                </div>
+                                <p className="text-white/40 font-mono text-xs md:text-sm uppercase tracking-widest">Dashboard Preview</p>
+                            </div>
+                        </div>
+
+                        {/* Glossy Overlay Reflection */}
+                        <div className="absolute inset-0 bg-gradient-to-tr from-white/10 via-transparent to-transparent pointer-events-none" />
+                    </div>
+                </Reveal>
             </div>
         </section>
     );

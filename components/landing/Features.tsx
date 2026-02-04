@@ -2,6 +2,7 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Palette, Share2, Smartphone, BarChart3, Globe, Zap } from "lucide-react";
+import { Reveal } from "./reveal"; // 🟢 Import Animation Wrapper
 
 const FEATURES = [
     {
@@ -9,40 +10,42 @@ const FEATURES = [
         desc: "Upload your logo and watch Souqely instantly generate a brand theme that matches your identity perfectly.",
         icon: <Palette className="w-6 h-6" />,
         color: "bg-purple-50 text-purple-600",
-        img: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=800" // Replace with branding screenshot
+        img: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=800"
     },
     {
         title: "Mobile-First Admin",
         desc: "Manage your entire shop from your phone while you're on the move. Orders, stock, and customers in one thumb-friendly app.",
         icon: <Smartphone className="w-6 h-6" />,
         color: "bg-blue-50 text-blue-600",
-        img: "https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?auto=format&fit=crop&q=80&w=800" // Replace with Mobile Admin screenshot
+        img: "https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?auto=format&fit=crop&q=80&w=800"
     },
     {
         title: "Shareable Shop Link",
         desc: "A professional URL (yourbrand.souqely.com) designed to look stunning in Instagram bios and WhatsApp chats.",
         icon: <Share2 className="w-6 h-6" />,
         color: "bg-green-50 text-green-600",
-        img: "https://images.unsplash.com/photo-1611162617474-5b21e879e113?auto=format&fit=crop&q=80&w=800" // Replace with Storefront link preview
+        img: "https://images.unsplash.com/photo-1611162617474-5b21e879e113?auto=format&fit=crop&q=80&w=800"
     }
 ];
 
 export default function Features() {
     return (
-        <section className="w-full py-24 bg-slate-50">
-            <div className="container mx-auto px-4 md:px-6">
+        <section className="w-full py-24 bg-white" id="features">
+            <div className="container mx-auto px-6 max-w-7xl">
 
-                {/* Section Header */}
-                <div className="text-center max-w-2xl mx-auto mb-20">
-                    <Badge className="mb-4 bg-slate-900 text-white hover:bg-slate-900 px-4 py-1 rounded-full uppercase text-[10px] tracking-[0.2em] font-black">
-                        The Engine
-                    </Badge>
-                    <h2 className="text-4xl md:text-6xl font-black tracking-tighter text-slate-900 mb-6 uppercase italic">
-                        Everything you need <br /> to <span className="text-blue-600 underline decoration-4 underline-offset-8">actually</span> sell.
-                    </h2>
-                </div>
+                {/* Section Header - Updated Fonts */}
+                <Reveal>
+                    <div className="text-center max-w-3xl mx-auto mb-20">
+                        <span className="text-xs font-bold uppercase tracking-widest text-[#1a56db] mb-3 block">
+                            The Engine
+                        </span>
+                        <h2 className="text-4xl md:text-5xl font-serif font-semibold text-[#0f1117] mb-6 leading-tight">
+                            Everything you need <br /> to <span className="text-[#1a56db]">actually</span> sell.
+                        </h2>
+                    </div>
+                </Reveal>
 
-                {/* Feature Stack (Alternating Layout) */}
+                {/* Feature Stack - Added Reveal & Softened UI */}
                 <div className="space-y-32">
                     {FEATURES.map((feature, index) => (
                         <div
@@ -52,61 +55,68 @@ export default function Features() {
                         >
                             {/* Text Side */}
                             <div className="flex-1 space-y-6">
-                                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${feature.color} shadow-sm`}>
-                                    {feature.icon}
-                                </div>
-                                <h3 className="text-3xl md:text-4xl font-black tracking-tight text-slate-900 uppercase">
-                                    {feature.title}
-                                </h3>
-                                <p className="text-xl text-slate-500 leading-relaxed max-w-lg">
-                                    {feature.desc}
-                                </p>
-                                <div className="flex items-center gap-6 pt-4">
-                                    <div className="flex flex-col">
-                                        <span className="text-2xl font-black text-slate-900">1-Click</span>
-                                        <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Setup Time</span>
+                                <Reveal delay={100}>
+                                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${feature.color} shadow-sm mb-6`}>
+                                        {feature.icon}
                                     </div>
-                                    <div className="h-10 w-px bg-slate-200" />
-                                    <div className="flex flex-col">
-                                        <span className="text-2xl font-black text-slate-900">100%</span>
-                                        <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Mobile Responsive</span>
+                                    <h3 className="text-3xl font-serif font-semibold text-[#0f1117]">
+                                        {feature.title}
+                                    </h3>
+                                    <p className="text-lg text-[#4a4e5a] leading-relaxed max-w-lg">
+                                        {feature.desc}
+                                    </p>
+
+                                    <div className="flex items-center gap-8 pt-6 border-t border-slate-100 mt-6">
+                                        <div className="flex flex-col">
+                                            <span className="text-2xl font-bold text-[#0f1117]">1-Click</span>
+                                            <span className="text-xs font-medium text-[#8a8f9e] uppercase tracking-wider">Setup Time</span>
+                                        </div>
+                                        <div className="h-8 w-px bg-slate-200" />
+                                        <div className="flex flex-col">
+                                            <span className="text-2xl font-bold text-[#0f1117]">100%</span>
+                                            <span className="text-xs font-medium text-[#8a8f9e] uppercase tracking-wider">Mobile Responsive</span>
+                                        </div>
                                     </div>
-                                </div>
+                                </Reveal>
                             </div>
 
-                            {/* Visual Side (Mockup Style) */}
+                            {/* Visual Side */}
                             <div className="flex-1 relative group">
-                                <div className="absolute inset-0 bg-blue-600 rounded-3xl blur-2xl opacity-0 group-hover:opacity-10 transition-opacity duration-700" />
-                                <div className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl transition-transform duration-700 group-hover:scale-[1.02]">
-                                    <img
-                                        src={feature.img}
-                                        alt={feature.title}
-                                        className="w-full h-auto object-cover aspect-[16/10]"
-                                    />
-                                    {/* Subtle UI Overlay to make it look like a software screenshot */}
-                                    <div className="absolute top-4 left-4 flex gap-1.5">
-                                        <div className="w-2.5 h-2.5 rounded-full bg-slate-200" />
-                                        <div className="w-2.5 h-2.5 rounded-full bg-slate-200" />
-                                        <div className="w-2.5 h-2.5 rounded-full bg-slate-200" />
+                                <Reveal delay={200} className="w-full">
+                                    <div className="absolute inset-0 bg-[#1a56db] rounded-[2rem] blur-3xl opacity-0 group-hover:opacity-10 transition-opacity duration-700" />
+                                    <div className="relative overflow-hidden rounded-[2rem] border border-[#e2e4e9] bg-white shadow-2xl shadow-slate-200/50 transition-transform duration-700 group-hover:scale-[1.01]">
+                                        <img
+                                            src={feature.img}
+                                            alt={feature.title}
+                                            className="w-full h-auto object-cover aspect-[4/3]"
+                                        />
+                                        {/* UI Dots */}
+                                        <div className="absolute top-4 left-4 flex gap-1.5 bg-white/90 backdrop-blur px-3 py-2 rounded-full shadow-sm">
+                                            <div className="w-2.5 h-2.5 rounded-full bg-[#ff5f57]" />
+                                            <div className="w-2.5 h-2.5 rounded-full bg-[#febc2e]" />
+                                            <div className="w-2.5 h-2.5 rounded-full bg-[#28c840]" />
+                                        </div>
                                     </div>
-                                </div>
+                                </Reveal>
                             </div>
                         </div>
                     ))}
                 </div>
 
-                {/* Small Feature Grid (Secondary Features) */}
-                <div className="mt-40 grid grid-cols-1 md:grid-cols-3 gap-12">
+                {/* Small Feature Grid */}
+                <div className="mt-32 grid grid-cols-1 md:grid-cols-3 gap-8">
                     {[
-                        { label: "LBP/USD Sync", icon: <BarChart3 />, desc: "Set one price, we handle the daily exchange rate automatically." },
-                        { label: "Global Reach", icon: <Globe />, desc: "Sell to the Lebanese diaspora with international card support coming soon." },
-                        { label: "Lightning Fast", icon: <Zap />, desc: "Proprietary image compression makes your store load instantly on slow 4G." }
+                        { label: "LBP/USD Sync", icon: <BarChart3 className="w-6 h-6" />, desc: "Set one price, we handle the daily exchange rate automatically." },
+                        { label: "Global Reach", icon: <Globe className="w-6 h-6" />, desc: "Sell to the Lebanese diaspora with international card support coming soon." },
+                        { label: "Lightning Fast", icon: <Zap className="w-6 h-6" />, desc: "Proprietary image compression makes your store load instantly on slow 4G." }
                     ].map((f, i) => (
-                        <div key={i} className="space-y-4 p-8 bg-white border border-slate-100 rounded-3xl hover:border-blue-200 transition-colors">
-                            <div className="text-blue-600">{f.icon}</div>
-                            <h4 className="font-black text-lg uppercase tracking-tight">{f.label}</h4>
-                            <p className="text-slate-500 text-sm leading-relaxed">{f.desc}</p>
-                        </div>
+                        <Reveal key={i} delay={i * 100}>
+                            <div className="space-y-4 p-8 bg-[#f7f8fa] border border-[#e2e4e9] rounded-3xl hover:bg-white hover:shadow-lg transition-all duration-300">
+                                <div className="text-[#1a56db] bg-white w-12 h-12 rounded-xl flex items-center justify-center shadow-sm border border-slate-100">{f.icon}</div>
+                                <h4 className="font-bold text-lg text-[#0f1117]">{f.label}</h4>
+                                <p className="text-[#4a4e5a] text-sm leading-relaxed">{f.desc}</p>
+                            </div>
+                        </Reveal>
                     ))}
                 </div>
 

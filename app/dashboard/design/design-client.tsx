@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Palette, Save, Layout, Monitor, Copy, ShieldCheck, Grid, Zap, List, Gem, Star, Upload, X, Check, Image as ImageIcon } from "lucide-react";
+import { Palette, Save, Layout, Copy, ShieldCheck, Grid, Zap, List, Gem, Star, Upload, X, Check, Image as ImageIcon, Smartphone, Eye, Edit3, Type } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -26,6 +26,9 @@ const DEFAULT_BADGES = [
 ];
 
 export default function DesignPageClient({ store }: { store: any }) {
+    // 🟢 MOBILE STATE
+    const [mobileTab, setMobileTab] = useState<'editor' | 'preview'>('editor');
+
     const [design, setDesign] = useState({
         template: store.template || "modern",
         logo_url: store.logo_url || "",
@@ -47,7 +50,12 @@ export default function DesignPageClient({ store }: { store: any }) {
 
     const [isSaving, setIsSaving] = useState(false);
     const [uploading, setUploading] = useState(false);
-    const [previewUrl, setPreviewUrl] = useState(`http://${store.slug}.localhost:3000`);
+
+    // Use real domain or localhost fallback
+    const previewUrl = process.env.NEXT_PUBLIC_SITE_URL
+        ? `http://${store.slug}.souqely.com`
+        : `http://${store.slug}.localhost:3000`;
+
     const fileInputRef = useRef<HTMLInputElement>(null);
     const heroInputRef = useRef<HTMLInputElement>(null);
 
@@ -72,28 +80,23 @@ export default function DesignPageClient({ store }: { store: any }) {
             const fileExt = file.name.split('.').pop();
             const fileName = `${fieldName}-${Date.now()}.${fileExt}`;
             const filePath = `${store.id}/${fileName}`;
-
-            // 🟢 DYNAMIC BUCKET SELECTION
-            // If uploading hero, use 'hero-images'. If logo, use 'store-logos' (or whatever your logo bucket is named)
             const bucketName = fieldName === 'hero_image_url' ? 'hero-images' : 'store-logos';
 
-            // 1. Upload
             const { error: uploadError } = await supabase.storage
                 .from(bucketName)
                 .upload(filePath, file);
 
             if (uploadError) throw uploadError;
 
-            // 2. Get URL
             const { data: { publicUrl } } = supabase.storage
                 .from(bucketName)
                 .getPublicUrl(filePath);
 
             updateField(fieldName, publicUrl);
-            toast.success("Logo uploaded!");
+            toast.success("Image uploaded!");
         } catch (error: any) {
             console.error(error);
-            toast.error("Upload failed. Make sure 'store-logos' bucket exists and is public.");
+            toast.error("Upload failed. Check bucket permissions.");
         } finally {
             setUploading(false);
         }
@@ -105,7 +108,6 @@ export default function DesignPageClient({ store }: { store: any }) {
             const result = await updateStoreDesign(store.id, design);
             if (result.success) {
                 toast.success("Design saved!");
-                // Refresh iframe
                 const iframe = document.querySelector('iframe');
                 if (iframe) iframe.src = iframe.src;
             } else {
@@ -126,11 +128,35 @@ export default function DesignPageClient({ store }: { store: any }) {
     };
 
     return (
-        <div className="flex h-[calc(100vh-60px)] bg-slate-50 overflow-hidden">
+        <div className="flex flex-col md:flex-row h-[calc(100vh-60px)] bg-slate-50 overflow-hidden relative">
 
-            {/* EDITOR SIDEBAR */}
-            <div className="w-[420px] bg-white border-r flex flex-col shadow-xl z-20">
-                <div className="flex-1 overflow-y-auto p-6 space-y-10">
+            {/* 🟢 MOBILE TABS (Mobile Only) */}
+            <div className="md:hidden flex items-center justify-between p-2 bg-white border-b z-50 shrink-0">
+                <div className="flex bg-slate-100 p-1 rounded-lg w-full">
+                    <button
+                        onClick={() => setMobileTab('editor')}
+                        className={cn("flex-1 flex items-center justify-center gap-2 py-2 rounded-md text-sm font-bold transition-all", mobileTab === 'editor' ? "bg-white shadow-sm text-slate-900" : "text-slate-500")}
+                    >
+                        <Edit3 className="w-4 h-4" /> Editor
+                    </button>
+                    <button
+                        onClick={() => setMobileTab('preview')}
+                        className={cn("flex-1 flex items-center justify-center gap-2 py-2 rounded-md text-sm font-bold transition-all", mobileTab === 'preview' ? "bg-white shadow-sm text-blue-600" : "text-slate-500")}
+                    >
+                        <Eye className="w-4 h-4" /> Preview
+                    </button>
+                </div>
+            </div>
+
+            {/* =====================================================================================
+                EDITOR SIDEBAR
+            ===================================================================================== */}
+            <div className={cn(
+                "flex-col bg-white border-r shadow-xl z-20 transition-transform duration-300 md:translate-x-0 md:w-[420px] md:flex",
+                mobileTab === 'editor' ? "flex w-full h-full absolute inset-0 md:static pt-14 md:pt-0" : "hidden"
+            )}>
+
+                <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-8 md:space-y-10 pb-24 md:pb-6 custom-scrollbar">
 
                     <div>
                         <h1 className="text-xl font-black tracking-tighter text-slate-900">STORE EDITOR</h1>
@@ -138,81 +164,55 @@ export default function DesignPageClient({ store }: { store: any }) {
                     </div>
 
                     {/* 0. TEMPLATE SELECTOR */}
-                    <section className="space-y-6">
+                    <section className="space-y-4">
                         <div className="flex items-center gap-2 text-blue-600 font-bold text-[10px] uppercase tracking-widest">
                             <Layout className="w-3 h-3" /> Layout & Theme
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-2 gap-3 md:gap-4">
                             {[
-                                { id: 'modern-grid', name: 'Modern Grid', icon: Grid, desc: 'Fashion & Shoes' },
+                                { id: 'modern-grid', name: 'Modern Grid', icon: Grid, desc: 'Fashion' },
                                 { id: 'tech-cyber', name: 'Tech Cyber', icon: Zap, desc: 'Electronics' },
-                                { id: 'classic-list', name: 'Classic List', icon: List, desc: 'Food & Grocery' },
-                                { id: 'minimalist-bold', name: 'Luxury Minimal', icon: Gem, desc: 'Jewelry & Art' },
-                                { id: 'vibrant-pop', name: 'Vibrant Pop', icon: Star, desc: 'Toys & Gifts' },
+                                { id: 'classic-list', name: 'Classic List', icon: List, desc: 'Grocery' },
+                                { id: 'minimalist-bold', name: 'Luxury', icon: Gem, desc: 'Jewelry' },
+                                { id: 'vibrant-pop', name: 'Vibrant Pop', icon: Star, desc: 'Gifts' },
                             ].map((tpl) => (
                                 <button
                                     key={tpl.id}
                                     onClick={() => updateField('template', tpl.id)}
                                     className={cn(
                                         "relative flex flex-col text-left p-3 rounded-xl border-2 transition-all hover:bg-slate-50",
-                                        design.template === tpl.id
-                                            ? "border-blue-600 bg-blue-50/50 ring-2 ring-blue-600/10"
-                                            : "border-slate-100 bg-white"
+                                        design.template === tpl.id ? "border-blue-600 bg-blue-50/50" : "border-slate-100 bg-white"
                                     )}
                                 >
-                                    {/* Active Checkmark */}
                                     {design.template === tpl.id && (
                                         <div className="absolute -top-2 -right-2 w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center shadow-lg border-2 border-white">
                                             <Check className="w-3 h-3 text-white" />
                                         </div>
                                     )}
-
-                                    <div className={cn(
-                                        "aspect-video rounded-lg flex items-center justify-center mb-2",
-                                        design.template === tpl.id ? "bg-blue-100" : "bg-slate-100"
-                                    )}>
+                                    <div className={cn("aspect-video rounded-lg flex items-center justify-center mb-2", design.template === tpl.id ? "bg-blue-100" : "bg-slate-100")}>
                                         <tpl.icon className={cn("w-6 h-6", design.template === tpl.id ? "text-blue-600" : "text-slate-400")} />
                                     </div>
-
                                     <span className="text-[11px] font-black uppercase tracking-tight text-slate-900">{tpl.name}</span>
                                     <span className="text-[9px] text-slate-400 font-medium">{tpl.desc}</span>
                                 </button>
                             ))}
                         </div>
-
-                        {/* 🟢 NEW: Conditional Template Settings */}
-                        {design.template === 'tech-cyber' && (
-                            <div className="p-3 bg-slate-900 rounded-lg border border-slate-800 mt-2 animate-in fade-in slide-in-from-top-2">
-                                <div className="flex items-center gap-2 text-blue-400 font-bold text-[10px] uppercase tracking-widest mb-1">
-                                    <Zap className="w-3 h-3" /> Cyber Config
-                                </div>
-                                <p className="text-[10px] text-slate-400">
-                                    Theme set to Dark Mode. Neon accents active.
-                                </p>
-                            </div>
-                        )}
                     </section>
 
                     <hr className="border-slate-100" />
 
-                    {/* 1. BRANDING & HEADER */}
+                    {/* 1. BRANDING & COLORS */}
                     <section className="space-y-6">
                         <div className="flex items-center gap-2 text-blue-600 font-bold text-[10px] uppercase tracking-widest">
                             <Palette className="w-3 h-3" /> Branding
                         </div>
 
-                        <div className="space-y-4">
-                            {/* LOGO UPLOADER */}
+                        <div className="space-y-6">
+                            {/* LOGO */}
                             <div className="space-y-3">
                                 <Label>Store Logo</Label>
-                                <input
-                                    type="file"
-                                    ref={fileInputRef}
-                                    onChange={(e) => handleImageUpload(e, 'logo_url')}
-                                    accept="image/*"
-                                    className="hidden"
-                                />
+                                <input type="file" ref={fileInputRef} onChange={(e) => handleImageUpload(e, 'logo_url')} accept="image/*" className="hidden" />
 
                                 <div className="flex items-start gap-4">
                                     <div className="w-20 h-20 bg-slate-100 rounded-xl border border-slate-200 flex items-center justify-center overflow-hidden relative shrink-0">
@@ -222,47 +222,29 @@ export default function DesignPageClient({ store }: { store: any }) {
                                             <ImageIcon className="w-8 h-8 text-slate-300" />
                                         )}
                                         {design.logo_url && (
-                                            <button
-                                                onClick={() => updateField('logo_url', "")}
-                                                className="absolute top-1 right-1 bg-white rounded-full p-0.5 shadow-sm hover:bg-red-50 hover:text-red-500"
-                                            >
+                                            <button onClick={() => updateField('logo_url', "")} className="absolute top-1 right-1 bg-white rounded-full p-0.5 shadow-sm hover:text-red-500">
                                                 <X className="w-3 h-3" />
                                             </button>
                                         )}
                                     </div>
-
                                     <div className="flex-1 space-y-2">
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            disabled={uploading}
-                                            onClick={() => fileInputRef.current?.click()}
-                                            className="w-full h-9 font-medium"
-                                        >
-                                            {uploading ? "Uploading..." : <><Upload className="w-4 h-4 mr-2" /> Upload Image</>}
+                                        <Button variant="outline" size="sm" disabled={uploading} onClick={() => fileInputRef.current?.click()} className="w-full h-9 font-medium">
+                                            {uploading ? "Uploading..." : <><Upload className="w-4 h-4 mr-2" /> Upload Logo</>}
                                         </Button>
-                                        <p className="text-[10px] text-slate-400 leading-tight">
-                                            Recommended: Square JPG/PNG. <br /> Leave empty to hide.
-                                        </p>
                                     </div>
                                 </div>
                             </div>
 
+                            {/* HEADER NAME (Restored) */}
                             <div>
                                 <Label>Header Brand Name</Label>
-                                <Input
-                                    value={design.header_name}
-                                    onChange={(e) => updateField('header_name', e.target.value)}
-                                    className="mt-2 font-bold"
-                                />
+                                <Input value={design.header_name} onChange={(e) => updateField('header_name', e.target.value)} className="mt-2 font-bold" />
                             </div>
 
+                            {/* FONT FAMILY (Restored) */}
                             <div>
                                 <Label>Font Family</Label>
-                                <Select
-                                    value={design.font_family}
-                                    onValueChange={(val) => updateField('font_family', val)}
-                                >
+                                <Select value={design.font_family} onValueChange={(val) => updateField('font_family', val)}>
                                     <SelectTrigger className="mt-2">
                                         <SelectValue />
                                     </SelectTrigger>
@@ -273,23 +255,17 @@ export default function DesignPageClient({ store }: { store: any }) {
                                     </SelectContent>
                                 </Select>
                             </div>
-                        </div>
 
-                        {/* Colors */}
-                        <div className="space-y-3">
-                            <Label>Color Palette</Label>
-                            <div className="grid grid-cols-3 gap-2">
-                                <div className="p-3 border rounded-xl flex flex-col items-center gap-2 hover:bg-slate-50">
-                                    <input type="color" value={design.primary_color} onChange={(e) => updateField('primary_color', e.target.value)} className="w-8 h-8 rounded-full cursor-pointer" />
-                                    <span className="text-[10px] uppercase font-mono text-slate-400">Brand</span>
-                                </div>
-                                <div className="p-3 border rounded-xl flex flex-col items-center gap-2 hover:bg-slate-50">
-                                    <input type="color" value={design.background_color} onChange={(e) => updateField('background_color', e.target.value)} className="w-8 h-8 rounded-full cursor-pointer" />
-                                    <span className="text-[10px] uppercase font-mono text-slate-400">Back</span>
-                                </div>
-                                <div className="p-3 border rounded-xl flex flex-col items-center gap-2 hover:bg-slate-50">
-                                    <input type="color" value={design.text_color} onChange={(e) => updateField('text_color', e.target.value)} className="w-8 h-8 rounded-full cursor-pointer" />
-                                    <span className="text-[10px] uppercase font-mono text-slate-400">Text</span>
+                            {/* COLORS */}
+                            <div className="space-y-3">
+                                <Label>Color Palette</Label>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {[{ label: 'Brand', key: 'primary_color' }, { label: 'Bg', key: 'background_color' }, { label: 'Text', key: 'text_color' }].map((col) => (
+                                        <div key={col.key} className="p-3 border rounded-xl flex flex-col items-center gap-2 hover:bg-slate-50">
+                                            <input type="color" value={(design as any)[col.key]} onChange={(e) => updateField(col.key, e.target.value)} className="w-8 h-8 rounded-full cursor-pointer p-0 border-none" />
+                                            <span className="text-[10px] uppercase font-mono text-slate-400">{col.label}</span>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
                         </div>
@@ -297,34 +273,28 @@ export default function DesignPageClient({ store }: { store: any }) {
 
                     <hr className="border-slate-100" />
 
-                    {/* 2. HERO & LAYOUT */}
+                    {/* 2. HERO SECTION */}
                     <section className="space-y-6">
                         <div className="flex items-center gap-2 text-blue-600 font-bold text-[10px] uppercase tracking-widest">
                             <Layout className="w-3 h-3" /> Hero Section
                         </div>
-                        {/* 🟢 HERO IMAGE UPLOAD */}
-                        <div className="space-y-3">
-                            <Label>Hero Background / Featured Image</Label>
-                            <input
-                                type="file"
-                                ref={heroInputRef}
-                                onChange={(e) => handleImageUpload(e, 'hero_image_url')}
-                                accept="image/*"
-                                className="hidden"
-                            />
-                            <div className="border-2 border-dashed border-slate-200 rounded-xl p-4 hover:bg-slate-50 transition-colors text-center cursor-pointer relative overflow-hidden group"
-                                onClick={() => heroInputRef.current?.click()}>
 
+                        {/* HERO IMAGE */}
+                        <div className="space-y-3">
+                            <Label>Hero Background</Label>
+                            <input type="file" ref={heroInputRef} onChange={(e) => handleImageUpload(e, 'hero_image_url')} accept="image/*" className="hidden" />
+                            <div
+                                className="border-2 border-dashed border-slate-200 rounded-xl p-4 hover:bg-slate-50 transition-colors text-center cursor-pointer relative overflow-hidden h-32 flex items-center justify-center group"
+                                onClick={() => heroInputRef.current?.click()}
+                            >
                                 {design.hero_image_url ? (
                                     <>
-                                        <img src={design.hero_image_url} className="w-full h-32 object-cover rounded-lg opacity-50 group-hover:opacity-100 transition-opacity" />
-                                        <div className="absolute inset-0 flex items-center justify-center">
-                                            <span className="bg-white/90 px-3 py-1 rounded-full text-xs font-bold shadow-sm">Change Image</span>
-                                        </div>
+                                        <img src={design.hero_image_url} className="w-full h-full object-cover absolute inset-0 opacity-50 group-hover:opacity-40" />
+                                        <span className="relative z-10 bg-white/90 px-3 py-1 rounded-full text-xs font-bold shadow-sm">Change Image</span>
                                     </>
                                 ) : (
-                                    <div className="py-4">
-                                        <ImageIcon className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                                    <div className="flex flex-col items-center">
+                                        <ImageIcon className="w-8 h-8 text-slate-300 mb-2" />
                                         <p className="text-xs text-slate-500 font-medium">Click to upload hero image</p>
                                     </div>
                                 )}
@@ -335,6 +305,8 @@ export default function DesignPageClient({ store }: { store: any }) {
                                 </Button>
                             )}
                         </div>
+
+                        {/* ALIGNMENT (Restored) */}
                         <div>
                             <Label>Alignment</Label>
                             <div className="flex gap-2 mt-2 bg-slate-100 p-1 rounded-lg w-fit">
@@ -342,134 +314,121 @@ export default function DesignPageClient({ store }: { store: any }) {
                                     <button
                                         key={align}
                                         onClick={() => updateField('hero_align', align)}
-                                        className={`px-4 py-1.5 text-xs font-medium rounded-md capitalize transition-all ${design.hero_align === align ? 'bg-white shadow text-slate-900' : 'text-slate-500 hover:text-slate-700'}`}
+                                        className={`px-4 py-1.5 text-xs font-medium rounded-md capitalize transition-all ${design.hero_align === align ? 'bg-white shadow text-slate-900' : 'text-slate-500'}`}
                                     >
                                         {align}
                                     </button>
                                 ))}
                             </div>
                         </div>
+
+                        {/* TEXT FIELDS (Restored All) */}
                         <div className="space-y-4">
                             <div>
                                 <Label>Badge Text</Label>
-                                <Input
-                                    value={design.hero_badge_text}
-                                    onChange={(e) => updateField('hero_badge_text', e.target.value)}
-                                    className="mt-2 font-bold text-blue-600"
-                                    placeholder="e.g. SUMMER SALE"
-                                />
-                                <p className="text-[10px] text-slate-400 mt-1">Leave empty to hide badge.</p>
+                                <Input value={design.hero_badge_text} onChange={(e) => updateField('hero_badge_text', e.target.value)} className="mt-2 font-bold text-blue-600" placeholder="e.g. SUMMER SALE" />
                             </div>
-
                             <div>
                                 <Label>Headline</Label>
-                                <Textarea
-                                    value={design.hero_title}
-                                    onChange={(e) => updateField('hero_title', e.target.value)}
-                                    className="mt-2 font-bold min-h-[80px]"
-                                />
+                                <Textarea value={design.hero_title} onChange={(e) => updateField('hero_title', e.target.value)} className="mt-2 font-bold min-h-[80px]" />
                             </div>
                             <div>
                                 <Label>Subtitle</Label>
-                                <Input
-                                    value={design.hero_subtitle}
-                                    onChange={(e) => updateField('hero_subtitle', e.target.value)}
-                                    className="mt-2"
-                                />
+                                <Input value={design.hero_subtitle} onChange={(e) => updateField('hero_subtitle', e.target.value)} className="mt-2" />
                             </div>
                             <div>
                                 <Label>Announcement Bar</Label>
-                                <Input
-                                    value={design.announcement_text}
-                                    onChange={(e) => updateField('announcement_text', e.target.value)}
-                                    className="mt-2"
-                                />
+                                <Input value={design.announcement_text} onChange={(e) => updateField('announcement_text', e.target.value)} className="mt-2" />
                             </div>
                         </div>
                     </section>
 
                     <hr className="border-slate-100" />
 
-                    {/* 3. TRUST SIGNALS */}
+                    {/* 3. TRUST SIGNALS (Restored) */}
                     <section className="space-y-6">
                         <div className="flex items-center gap-2 text-blue-600 font-bold text-[10px] uppercase tracking-widest">
                             <ShieldCheck className="w-3 h-3" /> Trust Signals
                         </div>
 
-                        <div className="space-y-6">
+                        <div className="space-y-4">
                             {design.trust_badges.map((badge: any, index: number) => (
                                 <div key={index} className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-3">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <div className="w-6 h-6 bg-white rounded-full flex items-center justify-center border text-xs font-bold text-slate-400">
-                                            {index + 1}
-                                        </div>
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-5 h-5 bg-white rounded-full flex items-center justify-center border text-[10px] font-bold text-slate-400">{index + 1}</div>
                                         <span className="text-xs font-bold uppercase text-slate-400">Badge {index + 1}</span>
                                     </div>
-
-                                    <div>
-                                        <Label className="text-xs">Title</Label>
-                                        <Input
-                                            value={badge.title}
-                                            onChange={(e) => updateBadge(index, 'title', e.target.value)}
-                                            className="h-8 mt-1"
-                                        />
-                                    </div>
-                                    <div>
-                                        <Label className="text-xs">Description</Label>
-                                        <Input
-                                            value={badge.desc}
-                                            onChange={(e) => updateBadge(index, 'desc', e.target.value)}
-                                            className="h-8 mt-1"
-                                        />
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <Label className="text-[10px] uppercase text-slate-400">Title</Label>
+                                            <Input value={badge.title} onChange={(e) => updateBadge(index, 'title', e.target.value)} className="h-8 mt-1 text-xs" />
+                                        </div>
+                                        <div>
+                                            <Label className="text-[10px] uppercase text-slate-400">Description</Label>
+                                            <Input value={badge.desc} onChange={(e) => updateBadge(index, 'desc', e.target.value)} className="h-8 mt-1 text-xs" />
+                                        </div>
                                     </div>
                                 </div>
                             ))}
-                            <p className="text-[10px] text-slate-400 text-center">Empty a title to hide that specific badge.</p>
                         </div>
                     </section>
 
                 </div>
 
                 {/* Footer Actions */}
-                <div className="p-6 border-t bg-slate-50 space-y-3">
-                    <Button
-                        onClick={handleSave}
-                        disabled={isSaving}
-                        className="w-full h-12 bg-slate-900 font-bold rounded-xl text-white shadow-xl hover:bg-slate-800"
-                    >
+                <div className="p-4 md:p-6 border-t bg-slate-50 space-y-3 shrink-0">
+                    <Button onClick={handleSave} disabled={isSaving} className="w-full h-12 bg-slate-900 font-bold rounded-xl text-white shadow-xl hover:bg-slate-800">
                         {isSaving ? "Publishing..." : <span className="flex gap-2 items-center"><Save className="w-4 h-4" /> Save Changes</span>}
                     </Button>
-
-                    <Button
-                        onClick={copyLink}
-                        variant="outline"
-                        className="w-full h-12 font-bold rounded-xl border-slate-200 hover:bg-white hover:text-blue-600 transition-colors"
-                    >
+                    <Button onClick={copyLink} variant="outline" className="w-full h-12 font-bold rounded-xl border-slate-200 hover:bg-white hover:text-blue-600 transition-colors">
                         <Copy className="w-4 h-4 mr-2" /> Copy Store Link
                     </Button>
                 </div>
             </div>
 
-            {/* --- LIVE PREVIEW --- */}
-            <div className="flex-1 bg-slate-200/50 flex flex-col items-center justify-center p-8 relative">
-                <div className="absolute top-6 right-6 flex items-center gap-2 px-3 py-1.5 bg-white rounded-full shadow-sm border border-slate-200 z-10">
+            {/* =====================================================================================
+                PREVIEW AREA
+            ===================================================================================== */}
+            <div className={cn(
+                "flex-1 bg-slate-200/50 flex flex-col items-center justify-center p-4 md:p-8 relative transition-opacity duration-300",
+                mobileTab === 'preview' ? "flex h-full pt-14 md:pt-8" : "hidden md:flex"
+            )}>
+                {/* Desktop "Live" Badge */}
+                <div className="hidden md:flex absolute top-6 right-6 items-center gap-2 px-3 py-1.5 bg-white rounded-full shadow-sm border border-slate-200 z-10">
                     <span className="relative flex h-2 w-2">
                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                         <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
                     </span>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                        Live Preview
-                    </span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Live Preview</span>
                 </div>
 
-                <div className="absolute top-6 left-6 flex items-center gap-2 px-4 py-2 bg-white rounded-full shadow-sm text-xs font-medium text-slate-500">
-                    <Monitor className="w-3 h-3" /> Desktop View
+                <div className="w-full h-full md:max-w-[1200px] bg-white rounded-xl md:rounded-2xl shadow-2xl overflow-hidden border border-slate-300/50 transition-all flex flex-col">
+                    {/* Fake Browser Bar */}
+                    <div className="bg-slate-100 border-b border-slate-200 px-4 py-2 flex items-center gap-2">
+                        <div className="flex gap-1.5">
+                            <div className="w-2.5 h-2.5 rounded-full bg-red-400" />
+                            <div className="w-2.5 h-2.5 rounded-full bg-yellow-400" />
+                            <div className="w-2.5 h-2.5 rounded-full bg-green-400" />
+                        </div>
+                        <div className="flex-1 bg-white h-6 rounded-md flex items-center px-3 text-[10px] text-slate-400 font-mono truncate mx-4">
+                            {previewUrl}
+                        </div>
+                    </div>
+
+                    <iframe
+                        src={previewUrl}
+                        className="w-full flex-1 border-none bg-white"
+                        title="Store Preview"
+                        key={Date.now()} // Force refresh on re-render if needed, though mostly handled by iframe.src reset in save
+                    />
                 </div>
 
-                <div className="w-full h-full max-w-[1200px] bg-white rounded-2xl shadow-2xl overflow-hidden border border-slate-300/50 transition-all">
-                    <iframe src={previewUrl} className="w-full h-full border-none" title="Preview" />
+                {/* Mobile Refresh Hint */}
+                <div className="md:hidden mt-2 text-[10px] text-slate-400 font-medium">
+                    Preview updates automatically on save
                 </div>
             </div>
+
         </div>
     );
 }

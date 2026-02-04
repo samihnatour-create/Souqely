@@ -485,13 +485,15 @@ export async function getDashboardStats(storeId: string) {
     const { count: productCount } = await supabase
         .from("products")
         .select("*", { count: "exact", head: true })
-        .eq("store_id", storeId);
+        .eq("store_id", storeId)
+        .eq("active", true);
 
     // 2. Get All Orders (for totals)
     const { data: orders, error } = await supabase
         .from("orders")
         .select("*")
         .eq("store_id", storeId)
+        .neq("status", "cancelled")
         .order("created_at", { ascending: false }); // Latest first
 
     if (error) {
@@ -507,7 +509,7 @@ export async function getDashboardStats(storeId: string) {
 
     // 3. Calculate Stats
     const orderCount = orders.length;
-    const revenue = orders.reduce((sum, order) => sum + (order.total_usd || 0), 0);
+    const revenue = orders?.reduce((sum, order) => sum + (order.total_usd || 0), 0);
 
     // Count how many are "pending" (Actionable metric!)
     const pendingCount = orders.filter(o => o.status === 'pending').length;
