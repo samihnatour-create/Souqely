@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Sora, Fraunces } from "next/font/google"; // 🟢 Import Fonts
+import { Sora, Fraunces, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 
 // 1. Configure Fonts
@@ -15,6 +15,13 @@ const fraunces = Fraunces({
   display: "swap",
 });
 
+const jakarta = Plus_Jakarta_Sans({
+  subsets: ['latin'],
+  variable: '--font-jakarta',
+  weight: ['400', '500', '600', '700', '800'],
+  display: 'swap',
+});
+
 export const metadata: Metadata = {
   title: "Souqely — E-commerce built for Lebanon",
   description: "OMT. Whish. WhatsApp. LBP. Everything local stores actually use.",
@@ -26,8 +33,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={`${sora.variable} ${fraunces.variable} font-sans antialiased bg-white text-[#0f1117]`}>
+    <html lang="en" className={`${jakarta.variable} ${sora.variable} ${fraunces.variable}`}>
+      <body className="font-sans antialiased bg-white text-[#0f1117]">
         {children}
       </body>
     </html>

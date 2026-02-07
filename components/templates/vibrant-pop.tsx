@@ -9,7 +9,7 @@ import Image from "next/image";
 // Helper (reused)
 const getGoogleFontLink = (fontName: string) => `https://fonts.googleapis.com/css2?family=${fontName ? fontName.replace(/\s+/g, '+') : 'Fredoka'}:wght@400;700&display=swap`;
 
-export default function VibrantPop({ store, products, searchParams = {} }: any) {
+export default function VibrantPop({ store, products, filterUI, searchParams = {} }: any) {
     const theme = {
         color: searchParams.primary_color || store.primary_color || "#ec4899", // Pink default
         bg: searchParams.background_color || store.background_color || "#fff1f2",
@@ -54,6 +54,7 @@ export default function VibrantPop({ store, products, searchParams = {} }: any) 
                     </div>
                 </div>
             </section>
+            {filterUI}
 
             {/* PRODUCT GRID */}
             <section className="py-12 max-w-5xl mx-auto px-4">

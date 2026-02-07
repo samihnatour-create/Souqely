@@ -24,9 +24,10 @@ interface ModernGridProps {
     store: any;
     products: any[];
     searchParams?: { [key: string]: string | undefined };
+    filterUI?: React.ReactNode;
 }
 
-export default function ModernGrid({ store, products, searchParams = {} }: ModernGridProps) {
+export default function ModernGrid({ store, products, filterUI, searchParams = {} }: ModernGridProps) {
     const theme = {
         color: searchParams.primary_color || store.primary_color || "#2563eb",
         bg: searchParams.background_color || store.background_color || "#ffffff",
@@ -141,9 +142,8 @@ export default function ModernGrid({ store, products, searchParams = {} }: Moder
 
                 {/* --- 5. PRODUCTS GRID (THE FIX IS HERE) --- */}
                 <section className="py-12 md:py-24">
+                    {filterUI}
                     <div className="max-w-[1400px] mx-auto px-4 md:px-6">
-                        <h2 className="text-xl md:text-3xl font-black tracking-tight uppercase mb-8 md:mb-12 border-b border-black/10 pb-4 md:pb-6">Featured Products</h2>
-
                         {products && products.length > 0 ? (
                             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-8">
                                 {products.map((product: any) => {

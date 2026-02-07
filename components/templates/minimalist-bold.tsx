@@ -11,7 +11,7 @@ const getGoogleFontLink = (fontName: string) => {
     return `https://fonts.googleapis.com/css2?family=${formatted}:ital,wght@0,400;0,700;1,400&display=swap`;
 };
 
-export default function MinimalistBold({ store, products, searchParams = {} }: any) {
+export default function MinimalistBold({ store, products, searchParams, filterUI = {} }: any) {
     const theme = {
         color: searchParams.primary_color || store.primary_color || "#000000",
         bg: searchParams.background_color || store.background_color || "#ffffff",
@@ -56,10 +56,8 @@ export default function MinimalistBold({ store, products, searchParams = {} }: a
             {/* PRODUCT GRID - Spacious & Clean */}
             <section className="py-32 px-4 md:px-12 max-w-[1800px] mx-auto">
                 <div className="flex justify-between items-end mb-16 border-b border-black pb-4">
-                    <h2 className="text-4xl font-medium">Selected Works</h2>
-                    <span className="text-sm opacity-50">{products.length} ITEMS</span>
                 </div>
-
+                {filterUI}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-20">
                     {products.map((product: any) => {
                         const stock = product.product_variants?.length

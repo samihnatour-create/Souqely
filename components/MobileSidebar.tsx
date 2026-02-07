@@ -34,7 +34,7 @@ export default function MobileSidebar() {
       <SheetContent side="left" className="w-[80%] p-0 bg-white">
         <div className="flex h-full flex-col gap-2">
           <div className="flex h-[60px] items-center border-b px-6 shrink-0">
-            <Link className="flex items-center gap-2 font-black italic tracking-tighter text-xl" href="/dashboard" onClick={() => setOpen(false)}>
+            <Link className="font-jakarta font-[800] text-blue-600 tracking-tighter text-3xl" href="/dashboard" onClick={() => setOpen(false)}>
               SOUQELY
             </Link>
           </div>

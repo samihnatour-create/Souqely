@@ -16,7 +16,7 @@ const getFontFamily = (fontName: string) => {
     return "'Inter', sans-serif";
 };
 
-export default function ClassicList({ store, products, searchParams = {} }: any) {
+export default function ClassicList({ store, products, searchParams, filterUI = {} }: any) {
     const theme = {
         color: searchParams.primary_color || store.primary_color || "#16a34a",
         bg: searchParams.background_color || store.background_color || "#fdfdfd",
@@ -64,6 +64,7 @@ export default function ClassicList({ store, products, searchParams = {} }: any)
 
             {/* LIST LAYOUT */}
             <main className="max-w-3xl mx-auto px-4 space-y-6">
+                {filterUI}
                 {products.map((product: any) => {
                     const stock = product.product_variants?.length
                         ? product.product_variants.reduce((a: any, b: any) => a + (b.stock || 0), 0)

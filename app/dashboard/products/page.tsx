@@ -7,60 +7,114 @@ import { Plus, Package, Edit, Search } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { formatCurrency } from "@/lib/utils";
+import { FilterBarWrapper } from "@/components/shared/FilterBarWrapper";
 
 export const dynamic = "force-dynamic";
 
-export default async function ProductsPage() {
+export default async function ProductsPage({
+  searchParams,
+}: {
+  searchParams: { q?: string; category?: string; stock?: string; view?: string };
+}) {
   const store = await getStoreSettings();
   if (!store) return <div>Store not found</div>;
 
   const supabase = createClient();
 
-  // 1. FETCH PRODUCTS
+  // 1. FETCH PRODUCTS (Your original logic)
   const { data: products } = await supabase
     .from("products")
     .select("*, product_variants(*)")
     .eq("store_id", store.id)
     .order("created_at", { ascending: false });
 
+  if (!products) return <div>Failed to load products</div>;
+
+  // 2. EXTRACT CATEGORIES (For the Filter Dropdown)
+  const uniqueCategories = Array.from(
+    new Set(products.map((p) => p.category).filter(Boolean))
+  ) as string[];
+
+  // 3. FILTERING LOGIC
+  const query = searchParams.q?.toLowerCase() || "";
+  const catFilter = searchParams.category || "all";
+  const stockFilter = searchParams.stock || "all";
+  const view = searchParams.view || "grid"; // Default to Grid
+
+  const filteredProducts = products.filter((product) => {
+    // Search
+    const matchesSearch = product.name.toLowerCase().includes(query);
+    // Category
+    const matchesCategory = catFilter === "all" ? true : product.category === catFilter;
+    // Stock
+    const hasVariants = product.product_variants && product.product_variants.length > 0;
+    const totalStock = hasVariants
+      ? product.product_variants.reduce((acc: number, v: any) => acc + (v.stock || 0), 0)
+      : (product.stock || 0);
+
+    let matchesStock = true;
+    if (stockFilter === "in_stock") matchesStock = totalStock > 0;
+    if (stockFilter === "out_of_stock") matchesStock = totalStock <= 0;
+
+    return matchesSearch && matchesCategory && matchesStock;
+  });
+
   return (
-    // 🟢 OPTIMIZATION: Reduced padding 'p-3' for max mobile space
+    // 🟢 OPTIMIZATION: Reduced padding for mobile
     <div className="flex flex-col gap-6 p-3 md:p-8 pt-6 bg-slate-50/50 min-h-screen overflow-x-hidden">
 
       {/* HEADER */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-black tracking-tight text-slate-900">Products</h1>
+          <h1 className="text-2xl md:text-3xl font-black tracking-tight text-slate-900 font-jakarta">Products</h1>
           <p className="text-sm text-slate-500">Manage your inventory.</p>
         </div>
         <Link href="/dashboard/products/new" className="w-full md:w-auto">
-          <Button className="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold h-10 rounded-xl shadow-sm">
+          <Button className="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold h-11 rounded-xl shadow-sm">
             <Plus className="mr-2 h-4 w-4" /> Add Product
           </Button>
         </Link>
       </div>
 
-      {!products?.length ? (
+      {/* 🟢 FILTER BAR ADDITION */}
+      <FilterBarWrapper type="products" categories={uniqueCategories} />
+
+      {/* EMPTY STATE (Dynamic based on search results) */}
+      {filteredProducts.length === 0 ? (
         <div className="flex flex-col items-center justify-center text-center py-20 border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
           <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
             <Package className="w-8 h-8 text-slate-400" />
           </div>
-          <h3 className="text-lg font-bold text-slate-900 mb-2">No products yet</h3>
+          <h3 className="text-lg font-bold text-slate-900 mb-2">
+            {products.length === 0 ? "No products yet" : "No results found"}
+          </h3>
           <p className="text-slate-500 mb-6 max-w-xs mx-auto">
-            Add your first product to start selling on your storefront.
+            {products.length === 0
+              ? "Add your first product to start selling on your storefront."
+              : "Try adjusting your filters or search terms."}
           </p>
-          <Link href="/dashboard/products/new">
-            <Button variant="outline" className="border-slate-300 text-slate-700 font-bold">
-              Create your first product
-            </Button>
-          </Link>
+          {products.length === 0 ? (
+            <Link href="/dashboard/products/new">
+              <Button variant="outline" className="border-slate-300 text-slate-700 font-bold">
+                Create your first product
+              </Button>
+            </Link>
+          ) : (
+            <Link href="/dashboard/products">
+              <Button variant="link" className="text-blue-600 font-bold">Clear Filters</Button>
+            </Link>
+          )}
         </div>
       ) : (
-        // 🟢 GRID OPTIMIZATION: 'grid-cols-2' on mobile (was 1), gap reduced to 'gap-3'
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6">
-          {products.map((product) => {
+        // 🟢 VIEW TOGGLE CONTAINER
+        <div className={
+          view === 'list'
+            ? "flex flex-col gap-3"
+            : "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6"
+        }>
+          {filteredProducts.map((product) => {
 
-            // STOCK LOGIC
+            // STOCK LOGIC (Your original calculation)
             const hasVariants = product.product_variants && product.product_variants.length > 0;
             const totalStock = hasVariants
               ? product.product_variants.reduce((acc: number, v: any) => acc + (v.stock || 0), 0)
@@ -69,6 +123,44 @@ export default async function ProductsPage() {
             const isOutOfStock = totalStock <= 0;
             const isLowStock = totalStock > 0 && totalStock < 10;
 
+            // 🟢 LIST VIEW CARD (New Horizontal Layout)
+            if (view === 'list') {
+              return (
+                <Card key={product.id} className="flex flex-row items-center p-3 gap-3 md:gap-4 border-none shadow-sm bg-white rounded-xl overflow-hidden hover:shadow-md transition-all">
+                  {/* Thumbnail */}
+                  <div className="relative w-16 h-16 bg-slate-100 rounded-lg overflow-hidden shrink-0 border border-slate-100">
+                    {product.main_image_url ? (
+                      <Image src={product.main_image_url} alt={product.name} fill className="object-cover" />
+                    ) : <Package className="w-6 h-6 m-auto text-slate-300 relative top-1/2 -translate-y-1/2" />}
+                  </div>
+
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-bold text-slate-900 truncate text-sm md:text-base">{product.name}</h3>
+                    <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
+                      <span className="uppercase font-bold tracking-wider text-[10px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-600">{product.category || "General"}</span>
+                      <span className={isLowStock ? "text-orange-600 font-bold" : (isOutOfStock ? "text-red-600 font-bold" : "")}>
+                        {totalStock} in stock
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Price & Action */}
+                  <div className="text-right shrink-0 flex flex-col items-end gap-1">
+                    <span className="font-black text-slate-900 text-sm md:text-lg">
+                      ${product.price_usd}
+                    </span>
+                    <Link href={`/dashboard/products/${product.id}`}>
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-slate-400 hover:text-blue-600">
+                        <Edit className="w-4 h-4" />
+                      </Button>
+                    </Link>
+                  </div>
+                </Card>
+              );
+            }
+
+            // 🟢 GRID VIEW CARD (Your Original Vertical Layout)
             return (
               <Card key={product.id} className="overflow-hidden flex flex-col group border-none shadow-sm hover:shadow-xl transition-all duration-300 bg-white rounded-xl md:rounded-2xl">
 
@@ -89,14 +181,12 @@ export default async function ProductsPage() {
 
                   {/* COMPACT BADGES for Mobile */}
                   <div className="absolute top-2 left-2 md:top-3 md:left-3 flex flex-col gap-1">
-                    {/* Status */}
                     {product.active ? null : (
                       <Badge variant="secondary" className="bg-slate-200/90 text-slate-600 font-bold backdrop-blur-sm text-[10px] h-5 px-1.5 md:text-xs md:h-6 md:px-2.5">
                         Draft
                       </Badge>
                     )}
 
-                    {/* Stock Warning Only */}
                     {(isOutOfStock || isLowStock) && (
                       <Badge className={`
                             shadow-sm border-0 font-bold backdrop-blur-sm text-[10px] h-5 px-1.5 md:text-xs md:h-6 md:px-2.5

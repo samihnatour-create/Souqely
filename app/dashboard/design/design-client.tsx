@@ -53,8 +53,8 @@ export default function DesignPageClient({ store }: { store: any }) {
 
     // Use real domain or localhost fallback
     const previewUrl = process.env.NEXT_PUBLIC_SITE_URL
-        ? `http://${store.slug}.souqely.com`
-        : `http://${store.slug}.localhost:3000`;
+        ? `http://${store.slug}.local.host:3000`
+        : `http://${store.slug}.souqely.com`;
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const heroInputRef = useRef<HTMLInputElement>(null);

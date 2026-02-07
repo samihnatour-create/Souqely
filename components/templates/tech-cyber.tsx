@@ -9,7 +9,7 @@ import Image from "next/image";
 // Helper
 const getGoogleFontLink = (fontName: string) => `https://fonts.googleapis.com/css2?family=${fontName ? fontName.replace(/\s+/g, '+') : 'Share+Tech+Mono'}:wght@400;700&display=swap`;
 
-export default function TechCyber({ store, products, searchParams = {} }: any) {
+export default function TechCyber({ store, products, filterUI, searchParams = {} }: any) {
     const theme = {
         color: searchParams.primary_color || store.primary_color || "#00ff9d",
         bg: searchParams.background_color || store.background_color || "#050505",
@@ -90,12 +90,10 @@ export default function TechCyber({ store, products, searchParams = {} }: any) {
 
             {/* PRODUCTS: Data Grid */}
             <section className="py-20 px-6 max-w-[1600px] mx-auto">
-                <div className="flex items-center gap-4 mb-12">
+
+                <div className="flex items-center mb-12">
                     <div className="h-px flex-1 opacity-20" style={{ backgroundColor: theme.text }}></div>
-                    <h2 className="text-xl uppercase tracking-widest flex items-center gap-2">
-                        <Wifi className="w-4 h-4" style={{ color: theme.color }} />
-                        Available Units ({products.length})
-                    </h2>
+                    {filterUI}
                     <div className="h-px flex-1 opacity-20" style={{ backgroundColor: theme.text }}></div>
                 </div>
 

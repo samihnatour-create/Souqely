@@ -31,7 +31,7 @@ export default function DashboardSidebar() {
         <div className="flex h-[60px] items-center border-b px-6 shrink-0">
           <Link className="flex items-center gap-2" href="/dashboard">
             {/* Using font-bold instead of font-black for a cleaner look */}
-            <span className="text-xl font-bold tracking-tighter text-blue-600">Souqely</span>
+            <span className="font-jakarta font-[800] text-blue-600 tracking-tighter text-3xl">Souqely</span>
           </Link>
         </div>
         <div className="flex-1 overflow-auto py-6">

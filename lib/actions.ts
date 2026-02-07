@@ -737,6 +737,8 @@ export async function createOrder(orderData: any) {
         // We do this immediately after order creation. We do NOT 'await' it
         // because we don't want to make the customer wait for the notification to send.
         if (store.telegram_chat_id) {
+            console.log("🔔 Sending notification to:", store.telegram_chat_id);
+
             const message = `
 🚨 <b>New Order Received!</b>
 
@@ -748,9 +750,17 @@ export async function createOrder(orderData: any) {
 
 <a href="https://souqely.com/dashboard/orders">👉 View Order</a>
 `;
-            sendTelegramNotification(store.telegram_chat_id, message).catch(err =>
-                console.error("Telegram Send Failed:", err)
-            );
+
+            // 🟢 CRITICAL CHANGE: We use 'await' here.
+            // This forces the server to stay alive until the message is actually sent.
+            try {
+                await sendTelegramNotification(store.telegram_chat_id, message);
+                console.log("✅ Notification sent successfully");
+            } catch (err) {
+                console.error("❌ Notification Failed:", err);
+            }
+        } else {
+            console.warn("⚠️ No Telegram Chat ID found for store:", store.name);
         }
 
         // 5. Insert Items & Deduct Stock
