@@ -1,6 +1,6 @@
 "use client";
 
-import { CartHeaderButton, QuickAddButton } from "@/components/store/store-interactions";
+import { CartHeaderButton, QuickAddButton } from "@/components/store/store-interactions"; // Ensure this path is correct
 import { Button } from "@/components/ui/button";
 import { Star } from "lucide-react";
 import Link from "next/link";
@@ -20,7 +20,11 @@ export default function VibrantPop({ store, products, filterUI, searchParams = {
 
     return (
         <div className="min-h-screen" style={{ backgroundColor: theme.bg, color: theme.text, fontFamily: theme.font }}>
+            {/* 🟢 Force font load */}
             <link href={getGoogleFontLink(theme.font)} rel="stylesheet" />
+            <style jsx global>{`
+                body { font-family: '${theme.font}', sans-serif; }
+            `}</style>
 
             {/* HEADER - Floating Pill */}
             <header className="sticky top-4 z-50 px-4">
@@ -32,10 +36,9 @@ export default function VibrantPop({ store, products, filterUI, searchParams = {
 
             {/* HERO - Fun Box */}
             <section className="pt-24 pb-12 px-4">
-                <div className="max-w-5xl mx-auto relative rounded-[40px] overflow-hidden border-2 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] h-[500px] flex items-center justify-center text-center">
-
+                <div className="max-w-5xl mx-auto relative rounded-[40px] overflow-hidden border-2 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] h-[500px] flex items-center justify-center text-center bg-white">
                     {store.hero_image_url ? (
-                        <Image src={store.hero_image_url} fill alt="Hero" className="object-cover z-0" />
+                        <Image src={store.hero_image_url} fill alt="Hero" className="object-cover z-0" priority />
                     ) : (
                         <div className="absolute inset-0 bg-yellow-300 z-0"></div>
                     )}
@@ -47,55 +50,63 @@ export default function VibrantPop({ store, products, filterUI, searchParams = {
                             {store.hero_title || "SUPER FUN!"}
                         </h1>
                         <p className="font-bold text-lg opacity-80 mb-6">{store.hero_subtitle || "Grab your goodies now."}</p>
-                        <Button className="h-12 px-8 rounded-full border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all font-black"
+                        <Button className="h-12 px-8 rounded-full border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-all font-black text-black"
                             style={{ backgroundColor: theme.color }}>
                             SHOP NOW
                         </Button>
                     </div>
                 </div>
             </section>
+
+            {/* 🟢 INJECT FILTER HERE */}
             {filterUI}
 
             {/* PRODUCT GRID */}
-            <section className="py-12 max-w-5xl mx-auto px-4">
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+            <section className="py-12 px-4">
+                <div className="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-3 gap-6">
                     {products.map((product: any) => {
-                        const stock = product.product_variants?.length
-                            ? product.product_variants.reduce((a: any, b: any) => a + (b.stock || 0), 0)
-                            : (product.stock || 0);
-                        const isOOS = stock <= 0;
+                        // Calculate Stock
+                        const variantStock = product.product_variants?.reduce((acc: number, v: any) => acc + (v.stock || 0), 0);
+                        const totalStock = variantStock || product.stock || 0;
+                        const isOOS = totalStock <= 0;
 
                         return (
-                            <div key={product.id}
-                                className={`group bg-white rounded-3xl border-2 border-black p-3 relative transition-all hover:-translate-y-2 hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] ${isOOS ? 'opacity-60 grayscale' : ''}`}>
+                            <div key={product.id} className={`group bg-white rounded-3xl border-2 border-black p-3 relative transition-all hover:-translate-y-2 hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] ${isOOS ? 'opacity-60 grayscale' : ''}`}>
 
+                                {/* 🟢 1. IMAGE CONTAINER */}
                                 <div className="aspect-square relative rounded-2xl overflow-hidden border-2 border-black/10 mb-3 bg-slate-50">
-                                    <Link href={`/product/${product.id}`}>
+                                    {/* The Link wraps ONLY the image */}
+                                    <Link href={`/product/${product.id}`} className="block w-full h-full">
                                         {product.main_image_url ? (
-                                            <Image src={product.main_image_url} fill alt={product.name} className="object-cover" />
+                                            <Image src={product.main_image_url} fill alt={product.name} className="object-cover" sizes="(max-width: 768px) 50vw, 33vw" />
                                         ) : (
                                             <div className="flex items-center justify-center h-full"><Star className="text-yellow-400 w-12 h-12" /></div>
                                         )}
                                     </Link>
 
-                                    {/* Fun Button Position */}
-                                    <div className="absolute top-2 right-2 z-20">
-                                        <QuickAddButton
-                                            product={product}
-                                            variants={product.product_variants}
-                                            color={theme.color}
-                                            className="opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-300 border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
-                                        />
-                                    </div>
+                                    {/* 🟢 2. BUTTON (Absolute Positioned ON TOP of Link, but not inside it) */}
+                                    {/* We use z-20 to ensure it sits above the image link */}
+                                    {!isOOS && (
+                                        <div className="absolute top-2 right-2 z-20">
+                                            <QuickAddButton
+                                                product={product}
+                                                // Make sure you are passing the correct props your component expects
+                                                variants={product.product_variants?.[0]}
+                                                className="h-10 w-10 p-0 rounded-full border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] bg-white hover:bg-yellow-300 text-black flex items-center justify-center transition-all"
+                                                color={theme.color}
+                                            />
+                                        </div>
+                                    )}
                                 </div>
 
+                                {/* 🟢 3. TEXT DETAILS */}
                                 <Link href={`/product/${product.id}`} className="block px-2 pb-2">
-                                    <h3 className="font-black text-lg leading-tight mb-1">{product.name}</h3>
-                                    <div className="flex justify-between items-center">
-                                        <span className="font-bold text-xl px-2 py-0.5 rounded-md bg-yellow-200 border border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                                    <h3 className="font-black text-lg leading-tight mb-1 truncate">{product.name}</h3>
+                                    <div className="flex justify-between items-center mt-2">
+                                        <span className="font-bold text-sm md:text-base px-3 py-1 rounded-lg bg-yellow-200 border border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
                                             ${product.price_usd}
                                         </span>
-                                        {isOOS && <span className="font-black text-red-500 text-xs">GONE!</span>}
+                                        {isOOS && <span className="font-black text-red-500 text-xs rotate-12 border-2 border-red-500 px-1 rounded">SOLD OUT</span>}
                                     </div>
                                 </Link>
                             </div>

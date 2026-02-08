@@ -2,14 +2,14 @@
 
 import { useState, useEffect } from "react";
 import { useCart } from "@/lib/context/cart-context";
-import { ShoppingBag, Loader2, Plus, X, ArrowRight } from "lucide-react";
+import { ShoppingBag, Loader2, Plus, ArrowRight, X } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 
 // UI Components
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 // ----------------------------------------------------------------------
 // 1. CART HEADER BUTTON
@@ -31,7 +31,7 @@ export function CartHeaderButton({ slug, color, radius }: { slug: string, color:
 }
 
 // ----------------------------------------------------------------------
-// 2. QUICK ADD BUTTON (With Responsive Modal Logic)
+// 2. QUICK ADD BUTTON (Fixed Logic)
 // ----------------------------------------------------------------------
 export function QuickAddButton({
     product,
@@ -41,18 +41,33 @@ export function QuickAddButton({
 }: {
     product: any;
     color: string;
-    variants: any[];
-    className?: string; // <--- Added this type definition
+    variants?: any[];
+    className?: string;
 }) {
     const { addItem, openCart } = useCart();
     const [loading, setLoading] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
 
-    // 🟢 STOCK LOGIC
-    const isSimpleProduct = !variants || variants.length === 0;
+    const isDesktop = useMediaQuery("(min-width: 768px)");
+
+    // 🔍 DEBUG LOGIC: Check EVERY possible location for variants
+    const possibleVariants = [
+        variants,                      // 1. Passed as prop
+        product?.product_variants,     // 2. Supabase default key
+        product?.variants,             // 3. Common alias
+        product?.items                 // 4. Sometimes used in other setups
+    ];
+
+    // Find the first one that is a non-empty array
+    const foundVariants = possibleVariants.find(v => Array.isArray(v) && v.length > 0) || [];
+
+    // 🟢 FINAL DECISION: Is this a simple product?
+    const isSimpleProduct = foundVariants.length === 0;
+
+    // Stock Logic
     const totalStock = isSimpleProduct
         ? (product.stock || 0)
-        : variants.reduce((acc: number, v: any) => acc + (v.stock || 0), 0);
+        : foundVariants.reduce((acc: number, v: any) => acc + (v.stock || 0), 0);
 
     const isOutOfStock = totalStock <= 0;
 
@@ -60,13 +75,17 @@ export function QuickAddButton({
         e.preventDefault();
         e.stopPropagation();
 
-        // 1. If Variants Exist -> Open Responsive Modal
-        if (variants && variants.length > 0) {
+        if (isOutOfStock) return;
+
+        // 🚨 CRITICAL CHECK: Logic Split
+        if (!isSimpleProduct) {
+            console.log("Variations detected. Opening Modal...");
             setIsModalOpen(true);
-            return;
+            return; // 🛑 THIS RETURN STOPS THE CART FROM OPENING. DO NOT REMOVE.
         }
 
-        // 2. If Simple Product -> Direct Add
+        // --- Only runs if Simple Product ---
+        console.log("No variants detected. Adding to cart directly...");
         setLoading(true);
         setTimeout(() => {
             addItem({
@@ -75,73 +94,76 @@ export function QuickAddButton({
                 price: product.price_usd,
                 image: product.main_image_url || product.image_url,
                 quantity: 1,
-                maxStock: product.stock
             });
             toast.success("Added to cart");
             setLoading(false);
             openCart();
-        }, 500);
+        }, 300);
     };
 
-    // 🔴 STATE: OUT OF STOCK
     if (isOutOfStock) {
         return (
             <button
                 disabled
-                className="absolute bottom-3 right-3 h-8 px-3 md:h-10 md:px-4 bg-slate-100 text-slate-400 rounded-full border border-slate-200 shadow-sm text-[10px] font-bold uppercase tracking-wide cursor-not-allowed z-20"
+                className={cn(
+                    "h-8 px-3 bg-slate-100 text-slate-400 rounded-full border border-slate-200 text-[10px] font-bold uppercase cursor-not-allowed",
+                    className?.includes("static") ? "" : "absolute bottom-3 right-3"
+                )}
             >
                 Sold Out
             </button>
         );
     }
 
-    // 🟢 STATE: AVAILABLE
     return (
         <>
             <button
                 onClick={handleAdd}
-                // FIXED: Simplified visibility. 
-                // Mobile: Always visible. 
-                // Desktop: Always visible (to avoid confusion) but scales up on hover.
                 className={cn(
-                    "h-10 w-10 bg-white rounded-full shadow-lg flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 border border-slate-100",
-                    className)}
+                    "h-10 w-10 bg-white rounded-full shadow-lg flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 border border-slate-100 relative",
+                    className
+                )}
                 style={{ color: color }}
                 disabled={loading}
-                aria-label="Add to cart"
             >
-                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShoppingBag className="w-5 h-5" />}
+
+                {loading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                    isSimpleProduct ? <Plus className="w-5 h-5" /> : <ShoppingBag className="w-4 h-4" />
+                )}
             </button>
 
-            {/* RESPONSIVE MODAL */}
-            <ResponsiveProductModal
-                isOpen={isModalOpen}
-                onClose={() => setIsModalOpen(false)}
-                product={product}
-                variants={variants || []}
-                color={color}
-            />
+            {isModalOpen && (
+                isDesktop ? (
+                    <DesktopProductDialog
+                        isOpen={isModalOpen}
+                        onClose={() => setIsModalOpen(false)}
+                        product={product}
+                        variants={foundVariants} // Use the discovered variants
+                        color={color}
+                    />
+                ) : (
+                    <MobileVariantDrawer
+                        isOpen={isModalOpen}
+                        onClose={() => setIsModalOpen(false)}
+                        product={product}
+                        variants={foundVariants} // Use the discovered variants
+                        color={color}
+                    />
+                )
+            )}
         </>
     );
 }
 
 // ----------------------------------------------------------------------
-// 3. RESPONSIVE PRODUCT MODAL (The Logic Engine)
+// 3. DESKTOP VIEW (Dialog) - Z-INDEX FIXED
 // ----------------------------------------------------------------------
-function ResponsiveProductModal(props: any) {
-    const isDesktop = useMediaQuery("(min-width: 768px)");
-
-    if (isDesktop) {
-        return <DesktopProductDialog {...props} />;
-    }
-    return <MobileVariantDrawer {...props} />;
-}
-
-// ----------------------------------------------------------------------
-// 4. DESKTOP VIEW (Mini Product Page)
-// ----------------------------------------------------------------------
-function DesktopProductDialog({ isOpen, onClose, product, variants, color }: any) {
+export function DesktopProductDialog({ isOpen, onClose, product, variants, color }: any) {
     const { addItem, openCart } = useCart();
+
+    const safeVariants = Array.isArray(variants) ? variants : [];
 
     const handleVariantSelect = (variant: any) => {
         addItem({
@@ -161,10 +183,10 @@ function DesktopProductDialog({ isOpen, onClose, product, variants, color }: any
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="max-w-3xl p-0 overflow-hidden border-none shadow-2xl bg-white gap-0 rounded-2xl">
+            {/* 🟢 z-[9999] ensures it sits on top of everything */}
+            <DialogContent className="max-w-3xl p-0 overflow-hidden border-none shadow-2xl bg-white gap-0 rounded-2xl outline-none z-[9999]">
                 <div className="grid grid-cols-2 h-[500px]">
-
-                    {/* LEFT: Big Image Area */}
+                    {/* LEFT: Image */}
                     <div className="relative bg-slate-50 h-full border-r border-slate-100">
                         {product.main_image_url ? (
                             <Image src={product.main_image_url} fill alt={product.name} className="object-cover" />
@@ -172,57 +194,59 @@ function DesktopProductDialog({ isOpen, onClose, product, variants, color }: any
                             <div className="flex items-center justify-center h-full text-slate-300">No Image</div>
                         )}
                         <div className="absolute top-4 left-4">
-                            <span className="bg-white/90 backdrop-blur text-xs font-bold px-3 py-1 rounded-full shadow-sm">
+                            <span className="bg-white/90 backdrop-blur text-xs font-bold px-3 py-1 rounded-full shadow-sm text-slate-900">
                                 Quick View
                             </span>
                         </div>
                     </div>
 
-                    {/* RIGHT: Details & Options */}
+                    {/* RIGHT: Options */}
                     <div className="p-8 flex flex-col h-full overflow-y-auto">
                         <DialogHeader className="mb-6 text-left">
-                            <DialogTitle className="text-2xl font-black tracking-tight">{product.name}</DialogTitle>
-                            <p className="text-xl font-medium text-slate-500 mt-1">${product.price_usd}</p>
+                            <DialogTitle className="text-2xl font-black tracking-tight text-slate-900">{product.name}</DialogTitle>
+                            <p className="text-xl font-bold text-slate-500 mt-1">${product.price_usd}</p>
+                            <DialogDescription className="sr-only">Select a variant</DialogDescription>
                         </DialogHeader>
 
                         <div className="space-y-4 mb-8">
-                            <p className="text-sm text-slate-500 leading-relaxed">
-                                {product.description || "Select a variant below to add this item to your cart."}
+                            <p className="text-sm text-slate-500 leading-relaxed line-clamp-3">
+                                {product.description || "Select a variant below."}
                             </p>
                         </div>
 
                         <div className="mt-auto space-y-3">
                             <p className="text-xs font-bold text-slate-900 uppercase tracking-widest">Select Option</p>
                             <div className="grid grid-cols-1 gap-2">
-                                {variants.map((variant: any) => {
-                                    const isOOS = (variant.stock || 0) <= 0;
-                                    return (
-                                        <button
-                                            key={variant.id}
-                                            onClick={() => !isOOS && handleVariantSelect(variant)}
-                                            disabled={isOOS}
-                                            className={cn(
-                                                "flex items-center justify-between p-3 rounded-xl border text-left transition-all group",
-                                                isOOS
-                                                    ? "bg-slate-50 border-slate-100 opacity-50 cursor-not-allowed"
-                                                    : "bg-white border-slate-200 hover:border-black hover:shadow-md"
-                                            )}
-                                        >
-                                            <span className={cn("font-bold text-sm", isOOS ? "text-slate-400" : "text-slate-900")}>
-                                                {variant.name || [variant.size, variant.color].filter(Boolean).join(" / ")}
-                                            </span>
-
-                                            {isOOS ? (
-                                                <span className="text-[10px] text-red-500 font-bold uppercase">Sold Out</span>
-                                            ) : (
-                                                <div className="flex items-center gap-2 text-xs font-medium text-slate-500 group-hover:text-black">
-                                                    <span>Add</span>
-                                                    <ArrowRight className="w-3 h-3" />
-                                                </div>
-                                            )}
-                                        </button>
-                                    );
-                                })}
+                                {safeVariants.length === 0 ? (
+                                    <div className="text-sm text-slate-400 italic">No options available.</div>
+                                ) : (
+                                    safeVariants.map((variant: any) => {
+                                        const isOOS = (variant.stock || 0) <= 0;
+                                        return (
+                                            <button
+                                                key={variant.id}
+                                                onClick={() => !isOOS && handleVariantSelect(variant)}
+                                                disabled={isOOS}
+                                                className={cn(
+                                                    "flex items-center justify-between p-3 rounded-xl border-2 text-left transition-all group",
+                                                    isOOS ? "bg-slate-50 border-slate-100 opacity-50 cursor-not-allowed" : "bg-white border-slate-100 hover:border-black hover:shadow-md"
+                                                )}
+                                                style={!isOOS && color ? { borderColor: undefined } : {}}
+                                            >
+                                                <span className={cn("font-bold text-sm", isOOS ? "text-slate-400" : "text-slate-900")}>
+                                                    {variant.name || [variant.size, variant.color].filter(Boolean).join(" / ")}
+                                                </span>
+                                                {isOOS ? (
+                                                    <span className="text-[10px] text-red-500 font-bold uppercase tracking-widest">Sold Out</span>
+                                                ) : (
+                                                    <div className="flex items-center gap-2 text-xs font-bold text-slate-400 group-hover:text-black transition-colors">
+                                                        <span>Add</span> <ArrowRight className="w-3 h-3" />
+                                                    </div>
+                                                )}
+                                            </button>
+                                        );
+                                    })
+                                )}
                             </div>
                         </div>
                     </div>
@@ -233,10 +257,11 @@ function DesktopProductDialog({ isOpen, onClose, product, variants, color }: any
 }
 
 // ----------------------------------------------------------------------
-// 5. MOBILE VIEW (Bottom Sheet)
+// 4. MOBILE VIEW (Drawer) - Z-INDEX FIXED
 // ----------------------------------------------------------------------
-function MobileVariantDrawer({ isOpen, onClose, product, variants, color }: any) {
+export function MobileVariantDrawer({ isOpen, onClose, product, variants, color }: any) {
     const { addItem, openCart } = useCart();
+    const safeVariants = Array.isArray(variants) ? variants : [];
 
     const handleVariantSelect = (variant: any) => {
         addItem({
@@ -256,23 +281,22 @@ function MobileVariantDrawer({ isOpen, onClose, product, variants, color }: any)
 
     return (
         <Sheet open={isOpen} onOpenChange={onClose}>
-            <SheetContent side="bottom" className="rounded-t-[20px] p-6 max-h-[85vh] overflow-y-auto z-[100]">
-                <SheetHeader className="mb-6 text-left flex flex-row gap-4 space-y-0">
-                    <div className="relative w-20 h-20 bg-slate-100 rounded-xl overflow-hidden shrink-0 border border-slate-100">
-                        {product.main_image_url && (
-                            <Image src={product.main_image_url} fill alt={product.name} className="object-cover" />
-                        )}
+            {/* 🟢 z-[9999] ensures it sits on top of everything */}
+            <SheetContent side="bottom" className="rounded-t-[25px] p-6 max-h-[85vh] overflow-y-auto z-[9999] outline-none border-t-0">
+                <SheetHeader className="mb-6 text-left flex flex-row gap-5 space-y-0 items-start">
+                    <div className="relative w-20 h-20 bg-slate-50 rounded-xl overflow-hidden shrink-0 border border-slate-100 shadow-sm">
+                        {product.main_image_url && <Image src={product.main_image_url} fill alt={product.name} className="object-cover" />}
                     </div>
-                    <div>
-                        <SheetTitle className="text-lg font-bold leading-tight">{product.name}</SheetTitle>
-                        <p className="text-slate-500 font-medium mt-1">${product.price_usd}</p>
+                    <div className="pt-1">
+                        <SheetTitle className="text-xl font-black leading-tight tracking-tight text-slate-900">{product.name}</SheetTitle>
+                        <p className="text-lg font-bold text-slate-500 mt-1">${product.price_usd}</p>
+                        <SheetDescription className="sr-only">Select a variant</SheetDescription>
                     </div>
                 </SheetHeader>
-
-                <div className="space-y-4 pb-10">
+                <div className="space-y-4 pb-8">
                     <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Select Option</p>
-                    <div className="grid grid-cols-1 gap-2">
-                        {variants.map((variant: any) => {
+                    <div className="grid grid-cols-1 gap-3">
+                        {safeVariants.map((variant: any) => {
                             const isOOS = (variant.stock || 0) <= 0;
                             return (
                                 <button
@@ -280,27 +304,26 @@ function MobileVariantDrawer({ isOpen, onClose, product, variants, color }: any)
                                     onClick={() => !isOOS && handleVariantSelect(variant)}
                                     disabled={isOOS}
                                     className={cn(
-                                        "flex items-center justify-between p-4 rounded-xl border text-left transition-all",
-                                        isOOS
-                                            ? "bg-slate-50 border-slate-100 opacity-50 cursor-not-allowed"
-                                            : "bg-white border-slate-200 hover:border-black/20 hover:shadow-sm active:scale-[0.98]"
+                                        "flex items-center justify-between p-4 rounded-2xl border-2 text-left transition-all duration-200 group",
+                                        isOOS ? "bg-slate-50 border-slate-100 opacity-60 cursor-not-allowed" : "bg-white border-slate-100 hover:border-black hover:shadow-md active:scale-[0.98]"
                                     )}
+                                    style={!isOOS && color ? { borderColor: undefined } : {}}
                                 >
                                     <div>
-                                        <span className={cn("font-bold block text-sm", isOOS ? "text-slate-400" : "text-slate-900")}>
+                                        <span className={cn("font-bold block text-base group-hover:text-black transition-colors", isOOS ? "text-slate-400" : "text-slate-700")}>
                                             {variant.name || [variant.size, variant.color].filter(Boolean).join(" / ")}
                                         </span>
                                         {isOOS ? (
-                                            <span className="text-[10px] text-red-500 font-bold uppercase tracking-widest">Sold Out</span>
+                                            <span className="text-[10px] text-red-500 font-black uppercase tracking-widest">Sold Out</span>
                                         ) : (
-                                            <span className="text-[10px] text-green-600 font-medium">
+                                            <span className={cn("text-[10px] font-bold uppercase tracking-wide", variant.stock < 5 ? "text-orange-500" : "text-green-600")}>
                                                 {variant.stock < 5 ? `Only ${variant.stock} left` : "In Stock"}
                                             </span>
                                         )}
                                     </div>
                                     {!isOOS && (
-                                        <div className="w-8 h-8 rounded-full flex items-center justify-center bg-slate-100">
-                                            <Plus className="w-4 h-4" style={{ color: color }} />
+                                        <div className="w-8 h-8 rounded-full flex items-center justify-center bg-slate-50 group-hover:bg-black transition-colors" style={color ? { backgroundColor: color } : {}}>
+                                            <Plus className="w-5 h-5 text-white mix-blend-difference" />
                                         </div>
                                     )}
                                 </button>
@@ -314,12 +337,14 @@ function MobileVariantDrawer({ isOpen, onClose, product, variants, color }: any)
 }
 
 // ----------------------------------------------------------------------
-// 6. HELPER HOOK (Media Query)
+// 5. HELPER HOOK (Hydration Safe)
 // ----------------------------------------------------------------------
 function useMediaQuery(query: string) {
     const [matches, setMatches] = useState(false);
+    const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
+        setMounted(true);
         const media = window.matchMedia(query);
         if (media.matches !== matches) {
             setMatches(media.matches);
@@ -329,5 +354,5 @@ function useMediaQuery(query: string) {
         return () => media.removeEventListener("change", listener);
     }, [matches, query]);
 
-    return matches;
+    return mounted && matches;
 }

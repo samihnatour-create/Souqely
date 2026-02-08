@@ -51,10 +51,14 @@ export default function DesignPageClient({ store }: { store: any }) {
     const [isSaving, setIsSaving] = useState(false);
     const [uploading, setUploading] = useState(false);
 
-    // Use real domain or localhost fallback
-    const previewUrl = process.env.NEXT_PUBLIC_SITE_URL
-        ? `http://${store.slug}.local.host:3000`
-        : `http://${store.slug}.souqely.com`;
+    // 1. Get the domain from the environment (Localhost OR Production)
+    const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || "localhost:3000";
+
+    // 2. Determine Protocol (HTTP for local, HTTPS for prod)
+    const protocol = rootDomain.includes("localhost") ? "http" : "https";
+
+    // 3. Build the URL dynamically
+    const previewUrl = `${protocol}://${store.slug}.${rootDomain}`;
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const heroInputRef = useRef<HTMLInputElement>(null);

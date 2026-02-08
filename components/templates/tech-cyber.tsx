@@ -2,7 +2,7 @@
 
 import { CartHeaderButton, QuickAddButton } from "@/components/store/store-interactions";
 import { Button } from "@/components/ui/button";
-import { Zap, Terminal, Activity, Wifi } from "lucide-react";
+import { Zap, Terminal, Activity } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 
@@ -29,7 +29,6 @@ export default function TechCyber({ store, products, filterUI, searchParams = {}
                 style={{ borderColor: `${theme.text}20`, backgroundColor: `${theme.bg}CC` }}>
                 <div className="max-w-[1600px] mx-auto px-6 h-16 flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                        <Terminal className="w-5 h-5" style={{ color: theme.color }} />
                         <span className="text-xl uppercase tracking-widest font-bold">{store.name}</span>
                         <span className="text-[10px] px-1 ml-2 animate-pulse border hidden md:inline-block"
                             style={{ borderColor: theme.color, color: theme.color }}>ONLINE</span>
@@ -49,6 +48,7 @@ export default function TechCyber({ store, products, filterUI, searchParams = {}
                         fill
                         alt="Hero"
                         className="object-cover z-0"
+                        priority
                     />
                 ) : (
                     // Fallback Pattern
@@ -62,7 +62,7 @@ export default function TechCyber({ store, products, filterUI, searchParams = {}
                     style={{
                         backgroundImage: `linear-gradient(${theme.color} 1px, transparent 1px), linear-gradient(90deg, ${theme.color} 1px, transparent 1px)`,
                         backgroundSize: '40px 40px',
-                        backgroundColor: 'rgba(0,0,0,0.7)', // Darken image for text readability
+                        backgroundColor: 'rgba(0,0,0,0.7)',
                         opacity: 0.2
                     }}>
                 </div>
@@ -90,22 +90,25 @@ export default function TechCyber({ store, products, filterUI, searchParams = {}
 
             {/* PRODUCTS: Data Grid */}
             <section className="py-20 px-6 max-w-[1600px] mx-auto">
-
+                {filterUI}
                 <div className="flex items-center mb-12">
                     <div className="h-px flex-1 opacity-20" style={{ backgroundColor: theme.text }}></div>
-                    {filterUI}
                     <div className="h-px flex-1 opacity-20" style={{ backgroundColor: theme.text }}></div>
                 </div>
 
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                     {products.map((product: any) => {
-                        const isOOS = (product.stock || 0) <= 0;
+                        // Calculate stock including variants
+                        const variantStock = product.product_variants?.reduce((acc: number, v: any) => acc + (v.stock || 0), 0);
+                        const totalStock = variantStock || product.stock || 0;
+                        const isOOS = totalStock <= 0;
+
                         return (
                             <div key={product.id}
                                 className="group relative border transition-all hover:border-opacity-100 hover:shadow-[0_0_10px_rgba(0,0,0,0.5)]"
                                 style={{
                                     borderColor: `${theme.text}20`,
-                                    backgroundColor: `${theme.text}05`, // Very slight bg tint
+                                    backgroundColor: `${theme.text}05`,
                                     borderRadius: theme.radius
                                 }}>
 
@@ -113,7 +116,7 @@ export default function TechCyber({ store, products, filterUI, searchParams = {}
                                 <div className="aspect-square relative overflow-hidden border-b"
                                     style={{ borderColor: `${theme.text}10` }}>
 
-                                    {/* LINK (Z-10) */}
+                                    {/* 🟢 FIXED: Plural '/products/' */}
                                     <Link href={`/product/${product.id}`} className="absolute inset-0 z-10">
                                         {product.main_image_url ? (
                                             <Image
@@ -129,15 +132,19 @@ export default function TechCyber({ store, products, filterUI, searchParams = {}
                                         )}
                                     </Link>
 
-                                    {/* 🟢 BUTTON: Top-Right. Hidden on Desktop until Hover. */}
-                                    <div className="absolute top-2 right-2 z-20">
-                                        <QuickAddButton
-                                            product={product}
-                                            variants={product.product_variants}
-                                            color={theme.color}
-                                            className="opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-300"
-                                        />
-                                    </div>
+                                    {/* 🟢 QUICK ADD BUTTON */}
+                                    {/* Positioned at z-20 to be clickable above the link */}
+                                    {!isOOS && (
+                                        <div className="absolute top-2 right-2 z-20">
+                                            <QuickAddButton
+                                                product={product}
+                                                variants={product.product_variants}
+                                                color={theme.color}
+                                                // Added 'rounded-none' to match Cyber theme
+                                                className="rounded-none opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-300 shadow-none border border-black/20"
+                                            />
+                                        </div>
+                                    )}
 
                                     {/* OOS Warning */}
                                     {isOOS && (
@@ -150,6 +157,7 @@ export default function TechCyber({ store, products, filterUI, searchParams = {}
                                 </div>
 
                                 {/* Info Area */}
+                                {/* 🟢 FIXED: Plural '/products/' */}
                                 <Link href={`/product/${product.id}`} className="block p-4">
                                     <div className="flex justify-between items-start gap-2 mb-2">
                                         <h3 className="text-sm uppercase tracking-wider font-bold line-clamp-2 leading-tight">
