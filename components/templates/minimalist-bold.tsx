@@ -23,6 +23,15 @@ export default function MinimalistBold({ store, products, searchParams, filterUI
     return (
         <div className="min-h-screen" style={{ backgroundColor: theme.bg, color: theme.text, fontFamily: theme.font }}>
             <link href={getGoogleFontLink(theme.font)} rel="stylesheet" />
+            {/* 🟢 ANNOUNCEMENT BAR - Normal (Scrolls away) */}
+            {store.announcement_text && (
+                <div
+                    className="w-full h-[25px] flex items-center justify-center px-4 text-center text-[10px] md:text-[11px] font-black uppercase tracking-[0.2em] text-white"
+                    style={{ backgroundColor: theme.color }}
+                >
+                    {store.announcement_text}
+                </div>
+            )}
 
             {/* HEADER - Minimal */}
             <header className="fixed top-0 w-full z-50 transition-all duration-300 mix-blend-difference text-white">

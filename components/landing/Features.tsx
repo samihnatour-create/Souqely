@@ -1,8 +1,8 @@
 "use client";
 
-import { Badge } from "@/components/ui/badge";
 import { Palette, Share2, Smartphone, BarChart3, Globe, Zap } from "lucide-react";
-import { Reveal } from "./reveal"; // 🟢 Import Animation Wrapper
+import { Reveal } from "./reveal";
+import Image from "next/image";
 
 const FEATURES = [
     {
@@ -10,21 +10,24 @@ const FEATURES = [
         desc: "Upload your logo and watch Souqely instantly generate a brand theme that matches your identity perfectly.",
         icon: <Palette className="w-6 h-6" />,
         color: "bg-purple-50 text-purple-600",
-        img: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=800"
+        // 📸 Path: public/screenshots/branding.png
+        img: "/screenshots/branding.png"
     },
     {
         title: "Mobile-First Admin",
         desc: "Manage your entire shop from your phone while you're on the move. Orders, stock, and customers in one thumb-friendly app.",
         icon: <Smartphone className="w-6 h-6" />,
         color: "bg-blue-50 text-blue-600",
-        img: "https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?auto=format&fit=crop&q=80&w=800"
+        // 📸 Path: public/screenshots/mobile-admin.png
+        img: "/screenshots/mobile-admin.png"
     },
     {
         title: "Shareable Shop Link",
         desc: "A professional URL (yourbrand.souqely.com) designed to look stunning in Instagram bios and WhatsApp chats.",
         icon: <Share2 className="w-6 h-6" />,
         color: "bg-green-50 text-green-600",
-        img: "https://images.unsplash.com/photo-1611162617474-5b21e879e113?auto=format&fit=crop&q=80&w=800"
+        // 📸 Path: public/screenshots/social-link.png
+        img: "/screenshots/social-link.png"
     }
 ];
 
@@ -33,7 +36,7 @@ export default function Features() {
         <section className="w-full py-24 bg-white" id="features">
             <div className="container mx-auto px-6 max-w-7xl">
 
-                {/* Section Header - Updated Fonts */}
+                {/* Section Header */}
                 <Reveal>
                     <div className="text-center max-w-3xl mx-auto mb-20">
                         <span className="text-xs font-bold uppercase tracking-widest text-[#1a56db] mb-3 block">
@@ -45,7 +48,7 @@ export default function Features() {
                     </div>
                 </Reveal>
 
-                {/* Feature Stack - Added Reveal & Softened UI */}
+                {/* Feature Stack */}
                 <div className="space-y-32">
                     {FEATURES.map((feature, index) => (
                         <div
@@ -85,13 +88,20 @@ export default function Features() {
                                 <Reveal delay={200} className="w-full">
                                     <div className="absolute inset-0 bg-[#1a56db] rounded-[2rem] blur-3xl opacity-0 group-hover:opacity-10 transition-opacity duration-700" />
                                     <div className="relative overflow-hidden rounded-[2rem] border border-[#e2e4e9] bg-white shadow-2xl shadow-slate-200/50 transition-transform duration-700 group-hover:scale-[1.01]">
-                                        <img
-                                            src={feature.img}
-                                            alt={feature.title}
-                                            className="w-full h-auto object-cover aspect-[4/3]"
-                                        />
-                                        {/* UI Dots */}
-                                        <div className="absolute top-4 left-4 flex gap-1.5 bg-white/90 backdrop-blur px-3 py-2 rounded-full shadow-sm">
+
+                                        {/* 🟢 Updated to Next/Image for performance */}
+                                        <div className="relative aspect-[4/3] w-full">
+                                            <Image
+                                                src={feature.img}
+                                                alt={feature.title}
+                                                fill
+                                                className="object-cover object-top"
+                                                sizes="(max-width: 768px) 100vw, 600px"
+                                            />
+                                        </div>
+
+                                        {/* UI Browser Dots */}
+                                        <div className="absolute top-4 left-4 flex gap-1.5 bg-white/90 backdrop-blur px-3 py-2 rounded-full shadow-sm z-10">
                                             <div className="w-2.5 h-2.5 rounded-full bg-[#ff5f57]" />
                                             <div className="w-2.5 h-2.5 rounded-full bg-[#febc2e]" />
                                             <div className="w-2.5 h-2.5 rounded-full bg-[#28c840]" />
@@ -119,7 +129,6 @@ export default function Features() {
                         </Reveal>
                     ))}
                 </div>
-
             </div>
         </section>
     );

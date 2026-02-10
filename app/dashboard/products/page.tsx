@@ -8,6 +8,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { formatCurrency } from "@/lib/utils";
 import { FilterBarWrapper } from "@/components/shared/FilterBarWrapper";
+import BulkProductUpload from "@/components/admin/BulkProductUpload";
 
 export const dynamic = "force-dynamic";
 
@@ -69,11 +70,20 @@ export default async function ProductsPage({
           <h1 className="text-2xl md:text-3xl font-black tracking-tight text-slate-900 font-jakarta">Products</h1>
           <p className="text-sm text-slate-500">Manage your inventory.</p>
         </div>
-        <Link href="/dashboard/products/new" className="w-full md:w-auto">
-          <Button className="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold h-11 rounded-xl shadow-sm">
-            <Plus className="mr-2 h-4 w-4" /> Add Product
-          </Button>
-        </Link>
+
+        {/* 🟢 ACTION BUTTONS CONTAINER */}
+        <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
+
+          {/* 1. Bulk Import Button */}
+          <BulkProductUpload />
+
+          {/* 2. Add Product Button */}
+          <Link href="/dashboard/products/new" className="w-full md:w-auto">
+            <Button className="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold h-10 md:h-11 rounded-xl shadow-sm">
+              <Plus className="mr-2 h-4 w-4" /> Add Product
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* 🟢 FILTER BAR ADDITION */}

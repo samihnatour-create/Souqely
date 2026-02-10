@@ -1,10 +1,12 @@
 "use server";
 
 import { createClient } from "@/lib/supabase-server";
+import { createServerClient } from "@supabase/ssr";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { sendTelegramNotification } from "@/lib/telegram";
+
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 
@@ -803,6 +805,7 @@ export async function createOrder(orderData: any) {
     }
 }
 
+
 export async function uploadOrderProof(formData: FormData) {
     const supabase = createClient();
     const file = formData.get("file") as File;
@@ -829,15 +832,169 @@ export async function uploadOrderProof(formData: FormData) {
 
     return { success: true };
 }
+
+type AcceptOrderResponse =
+    | { success: true; data: any }
+    | { success: false; error: string };
+
+
 export async function acceptOrder(orderId: string) {
-    // Use admin client to bypass RLS if needed, otherwise standard client
-    const supabase = createClient();
+    console.log("🔥 SERVER ACTION STARTED: acceptOrder");
+    console.log("👉 Order ID:", orderId);
 
-    const { error } = await supabase
-        .from('orders')
-        .update({ status: 'shipped' }) // or 'processing'
-        .eq('id', orderId);
+    const supabase = await createClient(); // Note: await here is safer in newer Next.js versions
 
-    if (error) return { success: false, error: error.message };
-    return { success: true };
+    try {
+        // 1. Check if we can see the order first
+        const { data: checkData, error: checkError } = await supabase
+            .from("orders")
+            .select("id, status")
+            .eq("id", orderId)
+            .single();
+
+        if (checkError) {
+            console.error("❌ RLS ERROR: Could not find order. Is the user logged in?", checkError);
+            return { success: false, error: "Access Denied: " + checkError.message };
+        }
+        console.log("✅ Order found:", checkData);
+
+        // 2. Attempt the Update
+        const { data, error } = await supabase
+            .from("orders")
+            .update({ status: "shipped" })
+            .eq("id", orderId)
+            .select()
+            .single();
+
+        if (error) {
+            console.error("❌ UPDATE ERROR:", error);
+            return { success: false, error: "Update Failed: " + error.message };
+        }
+
+        console.log("✅ UPDATE SUCCESS:", data);
+        revalidatePath("/dashboard/orders");
+
+        return { success: true, data };
+    } catch (err: any) {
+        console.error("💥 CRASH:", err);
+        return { success: false, error: "Server Crash: " + err.message };
+    }
+}
+
+// --- Helper Functions ---
+const safeParseFloat = (val: any) => {
+    const str = String(val || "").replace(/[^0-9.-]/g, "");
+    const num = parseFloat(str);
+    return isNaN(num) ? 0 : num;
+};
+
+const safeParseInt = (val: any) => {
+    const str = String(val || "").replace(/[^0-9.-]/g, "");
+    const num = parseInt(str);
+    return isNaN(num) ? 0 : num;
+};
+
+export async function importProducts(rows: any[], token: string) {
+    console.log("🚀 Starting Bulk Import via supabase-admin...");
+
+    // 1. Initialize your existing Admin Client
+    const supabaseAdmin = createAdminClient();
+
+    // 2. Security Check: Verify the user token manually
+    // This ensures that even though we use admin powers, the person 
+    // triggering the action is a valid logged-in user.
+    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+
+    if (authError || !user) {
+        console.error("❌ Auth Failed:", authError?.message);
+        return { success: false, error: "Unauthorized access." };
+    }
+
+    try {
+        // 3. Get Store (using owner_id as discovered)
+        const { data: store, error: storeError } = await supabaseAdmin
+            .from("stores")
+            .select("id")
+            .eq("owner_id", user.id)
+            .single();
+
+        if (storeError || !store) {
+            console.error("❌ Store Error:", storeError);
+            return { success: false, error: "Store not found." };
+        }
+
+        console.log(`✅ Store Verified: ${store.id}`);
+
+        // 4. Grouping Logic
+        const productGroups: Record<string, any[]> = {};
+        rows.forEach((row) => {
+            const name = row.Name || row.name || row[" Name"];
+            if (!name) return;
+            if (!productGroups[name]) productGroups[name] = [];
+            productGroups[name].push(row);
+        });
+
+        let successCount = 0;
+
+        // 5. Insert Loop
+        for (const productName of Object.keys(productGroups)) {
+            const groupRows = productGroups[productName];
+            const mainRow = groupRows[0];
+
+            // A. Insert Product
+            const { data: product, error: productError } = await supabaseAdmin
+                .from("products")
+                .insert({
+                    store_id: store.id,
+                    name: productName,
+                    description: mainRow.Description || "",
+                    price_usd: safeParseFloat(mainRow.Price),
+                    stock: safeParseInt(mainRow.Stock),
+                    category: mainRow.Category || "General",
+                    main_image_url: mainRow.Image || null,
+                    is_active: true
+                })
+                .select("id")
+                .single();
+
+            if (productError) {
+                console.error(`❌ DB Error for ${productName}:`, productError.message);
+                continue;
+            }
+
+            // B. Insert Variants
+            const variantsToInsert = groupRows
+                .filter(row => row["Variant Name"] && String(row["Variant Name"]).trim() !== "")
+                .map(row => {
+                    let attributes = {};
+                    if (row["Variant Attributes"]) {
+                        try {
+                            row["Variant Attributes"].split(';').forEach((pair: string) => {
+                                const [key, val] = pair.split(':');
+                                if (key && val) attributes = { ...attributes, [key.trim()]: val.trim() };
+                            });
+                        } catch (e) { }
+                    }
+                    return {
+                        product_id: product.id,
+                        name: String(row["Variant Name"]),
+                        price_usd: safeParseFloat(row["Variant Price"] || mainRow.Price),
+                        stock: safeParseInt(row["Variant Stock"]),
+                        attributes: attributes
+                    };
+                });
+
+            if (variantsToInsert.length > 0) {
+                await supabaseAdmin.from("product_variants").insert(variantsToInsert);
+            }
+            successCount++;
+        }
+
+        revalidatePath("/dashboard/products");
+        console.log(`🚀 SUCCESS: Imported ${successCount} products`);
+        return { success: true, count: successCount, message: `Imported ${successCount} products!` };
+
+    } catch (err: any) {
+        return { success: false, error: "System Error: " + err.message };
+    }
 }

@@ -28,15 +28,23 @@ export default function ClassicList({ store, products, searchParams, filterUI = 
     return (
         <div className="min-h-screen pb-20" style={{ backgroundColor: theme.bg, color: theme.text, fontFamily: getFontFamily(theme.font) }}>
             <link href={getGoogleFontLink(theme.font)} rel="stylesheet" />
+            {/* 🟢 ANNOUNCEMENT BAR - Normal (Scrolls away) */}
+            {store.announcement_text && (
+                <div
+                    className="w-full h-[25px] flex items-center justify-center px-4 text-center text-[10px] md:text-[11px] font-black uppercase tracking-[0.2em] text-white"
+                    style={{ backgroundColor: theme.color }}
+                >
+                    {store.announcement_text}
+                </div>
+            )}
 
-            {/* HEADER */}
+            {/* 🟢 HEADER - Sticky (Stays at the very top) */}
             <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b shadow-sm">
                 <div className="max-w-3xl mx-auto px-4 h-16 flex items-center justify-between">
                     <h1 className="font-bold text-xl">{store.name}</h1>
                     <CartHeaderButton slug={store.slug} color={theme.color} radius={theme.radius} />
                 </div>
             </header>
-
             {/* HERO SECTION (Full Height or Compact) */}
             <div className="relative h-[40vh] md:h-[50vh] w-full overflow-hidden mb-8 flex items-end">
                 {/* Background Image */}

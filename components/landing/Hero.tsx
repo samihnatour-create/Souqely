@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Loader2, CheckCircle2, Smartphone, ChevronRight } from "lucide-react";
 import { joinWaitlist } from "@/lib/waitlist-actions"; // Keep your existing server action
 import { Reveal } from "./reveal"; // Import the animation wrapper we made
+import Image from "next/image";
 
 export default function Hero() {
     const [email, setEmail] = useState("");
@@ -120,18 +121,25 @@ export default function Hero() {
                 <Reveal delay={500}>
                     <div className="relative max-w-6xl mx-auto rounded-[1.5rem] md:rounded-[2.5rem] border-[6px] md:border-[10px] border-[#0f1117] bg-[#0f1117] shadow-2xl shadow-blue-900/20 overflow-hidden aspect-[16/10] md:aspect-[21/9] group">
 
-                        <div className="absolute inset-0 bg-slate-900 flex items-center justify-center">
-                            {/* Placeholder for Dashboard Screenshot */}
-                            <div className="text-center">
-                                <div className="w-20 h-20 md:w-24 md:h-24 bg-[#1a56db]/20 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
-                                    <Smartphone className="w-8 h-8 md:w-10 md:h-10 text-[#1a56db]" />
-                                </div>
-                                <p className="text-white/40 font-mono text-xs md:text-sm uppercase tracking-widest">Dashboard Preview</p>
-                            </div>
+                        {/* 🟢 REAL SCREENSHOT */}
+                        <div className="absolute inset-0 bg-slate-900">
+                            <Image
+                                src="/dashboard-preview.png"
+                                alt="Souqely Dashboard Interface"
+                                fill
+                                className="object-cover object-top transition-transform duration-700 group-hover:scale-[1.02]"
+                                sizes="(max-width: 768px) 100vw, 1200px"
+                                priority
+                                quality={90}
+                            />
                         </div>
 
-                        {/* Glossy Overlay Reflection */}
-                        <div className="absolute inset-0 bg-gradient-to-tr from-white/10 via-transparent to-transparent pointer-events-none" />
+                        {/* Glossy Overlay Reflection (Kept for style) */}
+                        <div className="absolute inset-0 bg-gradient-to-tr from-white/10 via-transparent to-transparent pointer-events-none z-10" />
+
+                        {/* Optional: Dark Overlay on Mobile to make text readable if you have text over it */}
+                        <div className="absolute inset-0 bg-black/10 md:bg-transparent pointer-events-none" />
+
                     </div>
                 </Reveal>
             </div>
